@@ -1,0 +1,118 @@
+---
+import { actions } from "astro:actions";
+import type { ListingWithRelations } from "@joe/db";
+import {
+  daysUntil,
+  deadlineTone,
+  locationLabel,
+  postedDate,
+  shortDate,
+} from "../lib/format";
+
+interface Props {
+  listing: ListingWithRelations;
+}
+
+const { listing } = Astro.props;
+const markState = listing.mark?.state ?? null;
+const posted = shortDate(postedDate(listing));
+const deadline = shortDate(listing.applicationDeadline);
+const tone = deadlineTone(daysUntil(listing.applicationDeadline));
+const place = locationLabel(listing);
+const jel = listing.jel.slice(0, 4);
+---
+
+<article
+  class="mark-row group flex items-start gap-3 px-3 py-2 transition-colors hover:bg-subtle"
+  data-jp-id={listing.jpId}
+  data-mark={markState ?? ""}
+  data-title={listing.title ?? "(untitled)"}
+>
+  <div class="min-w-0 flex-1">
+    <h2 class="truncate text-[15px] leading-6 font-semibold tracking-[-0.01em]">
+      {listing.title ?? "(untitled)"}
+    </h2>
+
+    <p class="meta truncate">
+      <span class="font-semibold text-ink-soft">
+        {listing.institution ?? "Unknown institution"}
+      </span>
+      {listing.department && <span> · {listing.department}</span>}
+      {place && <span> · {place}</span>}
+    </p>
+
+    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {
+        posted && (
+          <span class="badge-neutral nums">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              class="size-3"
+              aria-hidden="true"
+            >
+              <path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" />
+            </svg>
+            Posted {posted}
+          </span>
+        )
+      }
+      {
+        deadline && (
+          <span
+            class:list={[
+              "nums",
+              tone === "past" || tone === "soon" ? "badge-bad" : "badge-neutral",
+            ]}
+          >
+            Deadline {deadline}
+          </span>
+        )
+      }
+      {
+        listing.section && (
+          <span class="badge-neutral max-w-56 truncate" title={listing.section}>
+            {listing.section}
+          </span>
+        )
+      }
+      {jel.map((j) => <span class="badge-neutral">{j.code}</span>)}
+    </div>
+  </div>
+
+  <div
+    class="flex shrink-0 gap-1.5 opacity-100 transition-opacity md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+  >
+    <form method="POST" action={actions.setMark} class="mark-form">
+      <input type="hidden" name="jpId" value={listing.jpId} />
+      <input type="hidden" name="state" value="interested" />
+      <button
+        type="submit"
+        class:list={[
+          "btn-sm",
+          markState === "interested" ? "btn-good" : "btn-good-idle",
+        ]}
+        data-state="interested"
+      >
+        Interested
+      </button>
+    </form>
+    <form method="POST" action={actions.setMark} class="mark-form">
+      <input type="hidden" name="jpId" value={listing.jpId} />
+      <input type="hidden" name="state" value="not_interested" />
+      <button
+        type="submit"
+        class:list={[
+          "btn-sm",
+          markState === "not_interested" ? "btn-bad" : "btn-bad-idle",
+        ]}
+        data-state="not_interested"
+      >
+        Not Interested
+      </button>
+    </form>
+  </div>
+</article>

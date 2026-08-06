@@ -1,0 +1,27 @@
+{
+  "name": "@joe/web",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "rm -rf dist && astro check && astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/node": "^10.1.4",
+    "@joe/core": "workspace:*",
+    "@joe/db": "workspace:*",
+    "astro": "^6.4.8",
+    "echarts": "^6.0.0",
+    "tailwindcss": "^4.3.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/node": "^26.1.2",
+    "typescript": "^6.0.3"
+  }
+}

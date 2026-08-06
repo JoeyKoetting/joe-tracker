@@ -1,0 +1,158 @@
+---
+import { actions } from "astro:actions";
+import type { ListingWithRelations } from "@joe/db";
+import {
+  daysUntil,
+  deadlineTone,
+  locationLabel,
+  postedDate,
+  shortDate,
+} from "../lib/format";
+
+interface Props {
+  listing: ListingWithRelations;
+}
+
+const { listing } = Astro.props;
+const days = daysUntil(listing.applicationDeadline);
+const tone = deadlineTone(days);
+const deadline = shortDate(listing.applicationDeadline);
+const posted = shortDate(postedDate(listing));
+const place = locationLabel(listing);
+
+const facts = [
+  { label: "Location", value: place ?? "—" },
+  { label: "Posted", value: posted ?? "—" },
+  { label: "Section", value: listing.section },
+  { label: "Salary", value: listing.salaryRange },
+].filter((fact) => fact.value);
+---
+
+<article
+  class="mark-row flex min-h-0 flex-col"
+  data-jp-id={listing.jpId}
+  data-mark="interested"
+  data-title={listing.title ?? "(untitled)"}
+>
+  <div
+    class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5"
+  >
+    <span class="meta nums">Listing ID: #{listing.jpId}</span>
+    <div class="ml-auto flex gap-2">
+      <form method="POST" action={actions.setMark} class="mark-form">
+        <input type="hidden" name="jpId" value={listing.jpId} />
+        <input type="hidden" name="state" value="interested" />
+        <button type="submit" class="btn-good btn-sm" data-state="interested">
+          Interested
+        </button>
+      </form>
+      <form method="POST" action={actions.setMark} class="mark-form">
+        <input type="hidden" name="jpId" value={listing.jpId} />
+        <input type="hidden" name="state" value="not_interested" />
+        <button
+          type="submit"
+          class="btn-bad-idle btn-sm"
+          data-state="not_interested"
+        >
+          Not Interested
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div class="flex flex-wrap items-center gap-2">
+      {
+        deadline && (
+          <span
+            class:list={[
+              "nums",
+              tone === "past" || tone === "soon" ? "badge-bad" : "badge-neutral",
+            ]}
+          >
+            Deadline: {deadline}
+            {days != null &&
+              ` (${days < 0 ? `${-days}d ago` : `${days}d left`})`}
+          </span>
+        )
+      }
+      {
+        listing.section && (
+          <span class="badge-neutral max-w-72 truncate" title={listing.section}>
+            {listing.section}
+          </span>
+        )
+      }
+    </div>
+
+    <h2 class="mt-2 text-2xl leading-8 font-bold tracking-[-0.02em]">
+      {listing.title ?? "(untitled)"}
+    </h2>
+    <p class="mt-1 text-sm text-ink-soft">
+      {listing.institution ?? "Unknown institution"}
+      {listing.department && <span> — {listing.department}</span>}
+      {listing.division && <span> · {listing.division}</span>}
+    </p>
+
+    <dl class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="card px-3 py-2">
+        <dt class="label-data">JEL codes</dt>
+        <dd class="mt-1 flex flex-wrap gap-1">
+          {
+            listing.jel.length === 0 ? (
+              <span class="meta">—</span>
+            ) : (
+              listing.jel.map((j) => (
+                <span class="badge-neutral" title={j.description ?? undefined}>
+                  {j.code}
+                </span>
+              ))
+            )
+          }
+        </dd>
+      </div>
+      {
+        facts.map((fact) => (
+          <div class="card px-3 py-2">
+            <dt class="label-data">{fact.label}</dt>
+            <dd class="nums mt-1 text-sm">{fact.value ?? "—"}</dd>
+          </div>
+        ))
+      }
+    </dl>
+
+    <form
+      method="POST"
+      action={actions.updateNote}
+      class="note-form mt-5"
+      data-jp-id={listing.jpId}
+    >
+      <label class="label-data mb-1" for={`note-${listing.jpId}`}>
+        My private notes
+      </label>
+      <input type="hidden" name="jpId" value={listing.jpId} />
+      <textarea
+        id={`note-${listing.jpId}`}
+        name="note"
+        rows="4"
+        class="input resize-y"
+        placeholder="Faculty contacts, research fit, documents to prepare…"
+        >{listing.mark?.note ?? ""}</textarea
+      >
+      <p class="meta note-status mt-1 text-right text-[11px]">
+        Changes save automatically
+      </p>
+    </form>
+
+    {
+      listing.fullText && (
+        <section class="mt-6 border-t border-border pt-4">
+          <h3 class="label-data mb-2">Full posting text</h3>
+          <div class="max-w-[70ch] text-sm leading-6 whitespace-pre-wrap text-ink-soft">
+            {listing.fullText}
+          </div>
+        </section>
+      )
+    }
+  </div>
+</article>

@@ -1,0 +1,87 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { actions } from "astro:actions";
+import { getDb } from "../lib/db";
+import { countMarks, listByMark } from "@joe/db";
+import { locationLabel, postedDate, shortDate } from "../lib/format";
+
+const db = getDb();
+const [rows, counts] = await Promise.all([
+  listByMark(db, "not_interested"),
+  countMarks(db),
+]);
+---
+
+<BaseLayout
+  title="Not interested · JOE Tracker"
+  heading="Archive"
+  subtitle={`${rows.length} listing${rows.length === 1 ? "" : "s"} marked Not Interested`}
+  counts={counts}
+>
+  {
+    rows.length === 0 ? (
+      <div class="card px-4 py-10 text-center">
+        <p class="text-sm font-medium">The archive is empty.</p>
+        <p class="meta mt-1">
+          Listings you dismiss from <a href="/" class="font-medium underline">All
+          Listings</a> collect here.
+        </p>
+      </div>
+    ) : (
+      <div class="card divide-y divide-border overflow-hidden">
+        {rows.map((listing) => {
+          const posted = shortDate(postedDate(listing));
+          const place = locationLabel(listing);
+          return (
+            <article
+              class="mark-row group flex items-center gap-3 px-3 py-2 transition-colors hover:bg-subtle"
+              data-jp-id={listing.jpId}
+              data-mark="not_interested"
+              data-title={listing.title ?? "(untitled)"}
+            >
+              <div class="min-w-0 flex-1">
+                <h2 class="truncate text-sm font-semibold text-ink-soft">
+                  {listing.title ?? "(untitled)"}
+                </h2>
+                <p class="meta truncate">
+                  {listing.institution ?? "Unknown institution"}
+                  {place && <span> · {place}</span>}
+                  {posted && <span class="nums"> · Posted {posted}</span>}
+                </p>
+              </div>
+
+              <div class="flex shrink-0 gap-1.5 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                <form method="POST" action={actions.setMark} class="mark-form">
+                  <input type="hidden" name="jpId" value={listing.jpId} />
+                  <input type="hidden" name="state" value="interested" />
+                  <button
+                    type="submit"
+                    class="btn-good-idle btn-sm"
+                    data-state="interested"
+                  >
+                    Interested
+                  </button>
+                </form>
+                <form method="POST" action={actions.setMark} class="mark-form">
+                  <input type="hidden" name="jpId" value={listing.jpId} />
+                  <input type="hidden" name="state" value="not_interested" />
+                  <button
+                    type="submit"
+                    class="btn-bad btn-sm"
+                    data-state="not_interested"
+                  >
+                    Not Interested
+                  </button>
+                </form>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    )
+  }
+</BaseLayout>
+
+<script>
+  import "../scripts/mark.ts";
+</script>

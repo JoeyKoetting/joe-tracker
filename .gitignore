@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Local SQLite database
+data/
+
+# Build output
+dist/
+
+# Astro generated types and cache
+.astro/
+
+# Cloudflare / Wrangler local state (legacy)
+.wrangler/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo

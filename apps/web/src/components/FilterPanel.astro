@@ -1,0 +1,250 @@
+---
+import type { ListingFilters, JobType, PostedWithin, Region } from "@joe/core";
+import type { CountKey as MarkCountKey } from "../lib/nav";
+
+interface Props {
+  filters: ListingFilters;
+  sections: string[];
+  countries: string[];
+  jelCodes: string[];
+  activeCount: number;
+  counts?: { interested: number; notInterested: number };
+}
+
+const { filters, sections, countries, jelCodes, activeCount, counts } =
+  Astro.props;
+
+const postedWithinOptions: [PostedWithin, string, string][] = [
+  ["30d", "30d", "Last 30 days"],
+  ["90d", "90d", "Last 90 days"],
+  ["1y", "1y", "Past year"],
+  ["all", "Season", "Whole season (Aug 2026+)"],
+];
+
+const jobTypeOptions: [JobType | "", string][] = [
+  ["", "Any"],
+  ["tenure_track", "Tenure track"],
+  ["non_tenure_academic", "Non-tenure academic"],
+  ["industry", "Industry / nonacademic"],
+];
+
+const regionOptions: [Region | "", string][] = [
+  ["", "Any"],
+  ["us", "United States"],
+  ["canada_europe", "Canada + Europe"],
+  ["asia", "Asia / Oceania"],
+];
+
+type MarkFilter = NonNullable<ListingFilters["mark"]>;
+
+const markOptions: [MarkFilter, string, string, MarkCountKey | null][] = [
+  ["active", "Active", "Everything except the archive", null],
+  ["unmarked", "Not yet triaged", "No mark yet", null],
+  ["interested", "Interested", "Shortlisted only", "interested"],
+  ["not_interested", "Archived", "Marked not interested", "notInterested"],
+  ["any", "Everything", "Include archived listings", null],
+];
+
+const markCounts: Record<MarkCountKey, number | null> = {
+  interested: counts?.interested ?? null,
+  notInterested: counts?.notInterested ?? null,
+};
+
+const sortOptions: [NonNullable<ListingFilters["sort"]>, string][] = [
+  ["date_desc", "Newest posted"],
+  ["date_asc", "Oldest posted"],
+  ["deadline_asc", "Deadline soonest"],
+  ["institution_asc", "Institution A–Z"],
+];
+
+const postedWithin = filters.postedWithin ?? "all";
+const mark = filters.mark ?? "active";
+const sort = filters.sort ?? "date_desc";
+---
+
+<form method="GET" action={Astro.url.pathname} data-filters class="space-y-4">
+  <div class="flex items-center justify-between gap-2">
+    <span class="label-data">
+      Filters
+      {activeCount > 0 && <span class="nums">({activeCount})</span>}
+    </span>
+    {
+      activeCount > 0 && (
+        <a
+          href={Astro.url.pathname}
+          class="text-[12px] font-medium text-muted hover:text-ink"
+        >
+          Clear all
+        </a>
+      )
+    }
+  </div>
+
+  <label class="relative block">
+    <span class="sr-only">Search listings</span>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7"></circle>
+      <path d="m20 20-3.5-3.5"></path>
+    </svg>
+    <input
+      name="q"
+      type="search"
+      class="input pl-8"
+      placeholder="Search jobs…"
+      autocomplete="off"
+      value={filters.q ?? ""}
+    />
+  </label>
+
+  <div data-filter-groups class="space-y-4 transition-opacity">
+    <fieldset>
+      <legend class="label-data mb-1.5">Posted within</legend>
+      <div class="grid grid-cols-4 gap-1">
+        {
+          postedWithinOptions.map(([value, label, hint]) => (
+            <label class="seg" title={hint}>
+              <input
+                type="radio"
+                name="postedWithin"
+                value={value}
+                checked={postedWithin === value}
+                class="sr-only"
+              />
+              {label}
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend class="label-data mb-1">Job type</legend>
+      {
+        jobTypeOptions.map(([value, label]) => (
+          <label class="radio-row">
+            <input
+              type="radio"
+              name="jobType"
+              value={value}
+              checked={(filters.jobType ?? "") === value}
+              class="size-3.5 accent-primary"
+            />
+            {label}
+          </label>
+        ))
+      }
+    </fieldset>
+
+    <fieldset>
+      <legend class="label-data mb-1">Region</legend>
+      {
+        regionOptions.map(([value, label]) => (
+          <label class="radio-row">
+            <input
+              type="radio"
+              name="region"
+              value={value}
+              checked={(filters.region ?? "") === value}
+              class="size-3.5 accent-primary"
+            />
+            {label}
+          </label>
+        ))
+      }
+    </fieldset>
+
+    <fieldset>
+      <legend class="label-data mb-1">Triage</legend>
+      {
+        markOptions.map(([value, label, hint, countKey]) => (
+          <label class="radio-row" title={hint}>
+            <input
+              type="radio"
+              name="mark"
+              value={value}
+              checked={mark === value}
+              class="size-3.5 accent-primary"
+            />
+            <span class="flex-1">{label}</span>
+            {countKey && markCounts[countKey] != null && (
+              <span data-count={countKey} class="nums text-xs text-muted">
+                {markCounts[countKey]}
+              </span>
+            )}
+          </label>
+        ))
+      }
+    </fieldset>
+
+    <label class="block">
+      <span class="label-data mb-1">JEL code</span>
+      <select name="jel" class="input">
+        <option value="">Any</option>
+        {
+          jelCodes.map((code) => (
+            <option value={code} selected={filters.jel?.includes(code)}>
+              {code}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="label-data mb-1">Country</span>
+      <select name="country" class="input">
+        <option value="">Any</option>
+        {
+          countries.map((c) => (
+            <option value={c} selected={filters.country?.includes(c)}>
+              {c}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="label-data mb-1">Section</span>
+      <select name="section" class="input">
+        <option value="">Any</option>
+        {
+          sections.map((s) => (
+            <option value={s} selected={filters.section?.includes(s)}>
+              {s}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="label-data mb-1">Sort</span>
+      <select name="sort" class="input">
+        {
+          sortOptions.map(([value, label]) => (
+            <option value={value} selected={sort === value}>
+              {label}
+            </option>
+          ))
+        }
+      </select>
+    </label>
+  </div>
+
+  <noscript>
+    <button type="submit" class="btn-primary btn-sm w-full">Apply filters</button>
+  </noscript>
+</form>
+
+<script>
+  import "../scripts/filters.ts";
+</script>

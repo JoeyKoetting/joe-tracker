@@ -1,0 +1,79 @@
+---
+import "../css/tailwind.css";
+import Header from "../components/Header.astro";
+
+interface Props {
+  title?: string;
+  heading: string;
+  subtitle?: string;
+  counts?: { interested: number; notInterested: number };
+  /** Full-height panes that manage their own scrolling (master/detail views). */
+  flush?: boolean;
+}
+
+const {
+  title = "JOE Tracker",
+  heading,
+  subtitle,
+  counts,
+  flush = false,
+} = Astro.props;
+
+const hasFilters = Astro.slots.has("filters");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body
+    class:list={[
+      "flex min-h-dvh flex-col",
+      flush && "h-dvh min-h-0 overflow-hidden",
+    ]}
+  >
+    <Header counts={counts} />
+
+    <div class="flex min-h-0 flex-1">
+      {
+        hasFilters && (
+          <aside class="sticky top-14 h-[calc(100dvh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-border bg-surface p-3">
+            <slot name="filters" />
+          </aside>
+        )
+      }
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <div
+          class="flex shrink-0 items-center gap-x-4 gap-y-2 border-b border-border bg-surface px-4 py-2.5"
+        >
+          <div class="min-w-0">
+            <h1 class="truncate text-base leading-5 font-semibold tracking-[-0.01em]">
+              {heading}
+            </h1>
+            {subtitle && <p class="meta mt-0.5 truncate text-[12px]">{subtitle}</p>}
+          </div>
+          <div class="ml-auto flex items-center gap-2">
+            <slot name="actions" />
+          </div>
+        </div>
+
+        <main
+          class:list={["min-h-0 flex-1", flush ? "overflow-hidden" : "px-4 py-4"]}
+        >
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,128 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import InterestedDetail from "../components/InterestedDetail.astro";
+import { getDb } from "../lib/db";
+import { countMarks, listByMark } from "@joe/db";
+import { daysUntil, deadlineTone, shortDate } from "../lib/format";
+
+const db = getDb();
+const [rows, counts] = await Promise.all([
+  listByMark(db, "interested"),
+  countMarks(db),
+]);
+
+const requested = Number(Astro.url.searchParams.get("id"));
+const selected =
+  rows.find((listing) => listing.jpId === requested) ?? rows[0] ?? null;
+---
+
+<BaseLayout
+  title="Interested · JOE Tracker"
+  heading="Interested"
+  subtitle={`${rows.length} shortlisted`}
+  counts={counts}
+  flush={rows.length > 0}
+>
+  {
+    rows.length === 0 ? (
+      <div class="px-4 py-4">
+        <div class="card px-4 py-10 text-center">
+          <p class="text-sm font-medium">Nothing shortlisted yet.</p>
+          <p class="meta mt-1">
+            Browse <a href="/" class="font-medium underline">all listings</a> and
+            mark the ones worth a closer look.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div class="flex min-h-0 flex-col md:h-full md:flex-row">
+        <div class="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-2 md:hidden">
+          {rows.map((listing) => (
+            <a
+              href={`/interested?id=${listing.jpId}`}
+              class:list={[
+                "rounded border px-2.5 py-1 text-[13px] whitespace-nowrap",
+                selected?.jpId === listing.jpId
+                  ? "border-good bg-good-soft text-good-ink"
+                  : "border-border text-ink-soft",
+              ]}
+            >
+              {listing.institution ?? "Unknown"}
+            </a>
+          ))}
+        </div>
+
+        <div class="flex w-72 shrink-0 flex-col border-r border-border bg-surface max-md:hidden">
+          <div class="shrink-0 border-b border-border px-3 py-2">
+            <span class="label-data">
+              Shortlist <span class="nums">({rows.length})</span>
+            </span>
+          </div>
+          <ul class="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+            {rows.map((listing) => {
+              const active = selected?.jpId === listing.jpId;
+              const days = daysUntil(listing.applicationDeadline);
+              const tone = deadlineTone(days);
+              const deadline = shortDate(listing.applicationDeadline);
+              return (
+                <li>
+                  <a
+                    href={`/interested?id=${listing.jpId}`}
+                    aria-current={active ? "true" : undefined}
+                    class:list={[
+                      "block border-l-2 px-3 py-2 transition-colors",
+                      active
+                        ? "border-l-good bg-subtle"
+                        : "border-l-transparent hover:bg-subtle",
+                    ]}
+                  >
+                    <div class="flex items-start gap-2">
+                      <span class="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
+                        {listing.institution ?? "Unknown institution"}
+                      </span>
+                      {deadline && (
+                        <span
+                          class:list={[
+                            "nums",
+                            tone === "past" || tone === "soon"
+                              ? "badge-bad"
+                              : "badge-neutral",
+                          ]}
+                        >
+                          {deadline}
+                        </span>
+                      )}
+                    </div>
+                    <p class="meta mt-0.5 truncate">
+                      {listing.title ?? "(untitled)"}
+                    </p>
+                    {listing.jel.length > 0 && (
+                      <div class="mt-1 flex flex-wrap gap-1">
+                        {listing.jel.slice(0, 3).map((j) => (
+                          <span class="badge-neutral">{j.code}</span>
+                        ))}
+                      </div>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div class="min-w-0 flex-1 md:h-full md:overflow-hidden">
+          {selected ? (
+            <InterestedDetail listing={selected} />
+          ) : (
+            <p class="meta p-4">Select a listing from the shortlist.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+</BaseLayout>
+
+<script>
+  import "../scripts/mark.ts";
+  import "../scripts/note.ts";
+</script>

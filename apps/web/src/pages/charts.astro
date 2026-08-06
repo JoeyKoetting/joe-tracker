@@ -1,0 +1,101 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getDb } from "../lib/db";
+import { countMarks } from "@joe/db";
+import type { ChartSlice } from "@joe/core";
+
+const db = getDb();
+const counts = await countMarks(db);
+
+const slices: { id: ChartSlice; label: string }[] = [
+  { id: "overall", label: "Overall" },
+  { id: "finance", label: "Finance (JEL G)" },
+  { id: "fed", label: "Fed / regulators" },
+  { id: "us", label: "US" },
+  { id: "non_us", label: "Non-US" },
+  { id: "region_canada_europe", label: "Canada + Europe" },
+  { id: "region_asia", label: "Asia / Oceania" },
+  { id: "tenure_track", label: "Tenure track" },
+  { id: "non_tenure_academic", label: "Non-tenure academic" },
+  { id: "industry", label: "Industry" },
+];
+
+const initial = (Astro.url.searchParams.get("slice") as ChartSlice) || "overall";
+const interpolate = Astro.url.searchParams.get("interpolate") === "1";
+const sliceLabel =
+  slices.find((s) => s.id === initial)?.label ?? "Overall";
+---
+
+<BaseLayout
+  title="Analytics · JOE Tracker"
+  heading="Analytics"
+  subtitle="Aug 2026 season — posting volume by academic week"
+  counts={counts}
+>
+  <form
+    slot="actions"
+    method="GET"
+    id="charts-controls"
+    class="flex flex-wrap items-center gap-2"
+  >
+    <label class="label-data" for="slice">Slice</label>
+    <select id="slice" name="slice" class="input w-auto">
+      {
+        slices.map((s) => (
+          <option value={s.id} selected={s.id === initial}>
+            {s.label}
+          </option>
+        ))
+      }
+    </select>
+    <label class="flex items-center gap-1.5 text-[13px] text-ink-soft">
+      <input
+        type="checkbox"
+        name="interpolate"
+        value="1"
+        checked={interpolate}
+        class="size-3.5 accent-good"
+      />
+      Interpolate current week
+    </label>
+  </form>
+
+  <div class="grid gap-3 xl:grid-cols-2">
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">
+        Cumulative postings
+      </h2>
+      <p class="meta">{sliceLabel} · by academic week</p>
+      <div
+        id="chart-cumulative"
+        class="mt-3 h-[360px] w-full"
+        data-slice={initial}
+        data-interpolate={interpolate ? "1" : "0"}
+      >
+      </div>
+    </section>
+
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">
+        Rolling 4-week flow
+      </h2>
+      <p class="meta">New postings volume</p>
+      <div id="chart-rolling" class="mt-3 h-[360px] w-full"></div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import { mountCharts } from "../scripts/charts.ts";
+
+  const cumEl = document.getElementById("chart-cumulative");
+  const rollEl = document.getElementById("chart-rolling");
+  if (cumEl && rollEl) {
+    await mountCharts(cumEl, rollEl);
+  }
+
+  const form = document.getElementById("charts-controls");
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener("change", () => form.requestSubmit());
+  }
+</script>

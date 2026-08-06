@@ -1,0 +1,25 @@
+{
+  "name": "@joe/db",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run --dir src"
+  },
+  "dependencies": {
+    "@joe/core": "workspace:*",
+    "better-sqlite3": "^12.6.2",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.1.2",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

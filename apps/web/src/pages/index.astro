@@ -1,0 +1,81 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import FilterPanel from "../components/FilterPanel.astro";
+import ListingRow from "../components/ListingRow.astro";
+import { getDb } from "../lib/db";
+import {
+  countMarks,
+  queryListings,
+  distinctSections,
+  distinctCountries,
+  distinctJelCodes,
+} from "@joe/db";
+import { parseFilters, filtersToSearchParams } from "../lib/filters";
+
+const db = getDb();
+const filters = parseFilters(Astro.url.searchParams);
+const [{ rows, nextCursor }, counts, sections, countries, jelCodes] =
+  await Promise.all([
+    queryListings(db, filters),
+    countMarks(db),
+    distinctSections(db),
+    distinctCountries(db),
+    distinctJelCodes(db),
+  ]);
+
+const nextParams = nextCursor
+  ? filtersToSearchParams({ ...filters, cursor: nextCursor })
+  : null;
+
+const activeCount = [...filtersToSearchParams({ ...filters, cursor: undefined })]
+  .length;
+---
+
+<BaseLayout
+  title="All listings · JOE Tracker"
+  heading="All Listings"
+  subtitle={`${rows.length} shown`}
+  counts={counts}
+>
+  <FilterPanel
+    slot="filters"
+    filters={filters}
+    sections={sections}
+    countries={countries}
+    jelCodes={jelCodes}
+    activeCount={activeCount}
+    counts={counts}
+  />
+
+  {
+    rows.length === 0 ? (
+      <div class="card px-4 py-10 text-center">
+        <p class="text-sm font-medium">No listings match these filters.</p>
+        <p class="meta mt-1">
+          Try widening “Posted within”, or run <code>make ingest</code> to load
+          data.
+        </p>
+      </div>
+    ) : (
+      <div class="card divide-y divide-border overflow-hidden">
+        {rows.map((listing) => (
+          <ListingRow listing={listing} />
+        ))}
+      </div>
+    )
+  }
+
+  {
+    nextParams && (
+      <div class="mt-4 flex justify-center">
+        <a class="btn-ghost" href={`/?${nextParams.toString()}`}>
+          Load more
+        </a>
+      </div>
+    )
+  }
+</BaseLayout>
+
+<script>
+  import "../scripts/mark.ts";
+</script>

@@ -1,15 +1,15 @@
 import {
   mergeDateActive,
+  mergeJoePageDetails,
   nowIso,
+  parseJoeListingsHtml,
   parseJoeXml,
   parseJoeXlsxDates,
   SEASON_START,
 } from "@joe/core";
 import {
   createDb,
-  getMeta,
   recordIngestRun,
-  setMeta,
   upsertListings,
   type UpsertStats,
 } from "@joe/db";
@@ -18,7 +18,7 @@ const XML_URL =
   "https://www.aeaweb.org/joe/resultset_output.php?mode=full_xml";
 const XLSX_URL =
   "https://www.aeaweb.org/joe/resultset_xls_output.php?mode=xls_xml";
-const ETAG_KEY = "joe:xml:etag";
+const LISTINGS_URL = "https://www.aeaweb.org/joe/listings?lpp=all";
 const UA = "joe-tracker-ingest/0.1 (+local)";
 
 function effectiveDate(dateActive: string | null, fallbackIso: string): string {
@@ -32,47 +32,42 @@ async function runIngest(): Promise<
   const db = createDb();
 
   try {
-    const prevEtag = await getMeta(db, ETAG_KEY);
-    const xmlRes = await fetch(XML_URL, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "application/xml,text/xml,*/*",
-        ...(prevEtag ? { "If-None-Match": prevEtag } : {}),
-      },
-    });
-
-    if (xmlRes.status === 304) {
-      const stats = { fetched: 0, inserted: 0, updated: 0, unchanged: 0 };
-      await recordIngestRun(db, {
-        startedAt,
-        finishedAt: nowIso(),
-        mode: "manual:not-modified",
-        ...stats,
-      });
-      return { ...stats, skipped: true, dropped: 0 };
-    }
+    const [xmlRes, xlsxRes, listingsRes] = await Promise.all([
+      fetch(XML_URL, {
+        headers: { "User-Agent": UA, Accept: "application/xml,text/xml,*/*" },
+      }),
+      fetch(XLSX_URL, {
+        headers: {
+          "User-Agent": UA,
+          Accept: "application/vnd.ms-excel,application/octet-stream,*/*",
+        },
+      }),
+      fetch(LISTINGS_URL, {
+        headers: { "User-Agent": UA, Accept: "text/html,*/*" },
+      }),
+    ]);
 
     if (!xmlRes.ok) {
       throw new Error(`XML fetch failed: HTTP ${xmlRes.status}`);
     }
 
-    const xmlText = await xmlRes.text();
-    const etag = xmlRes.headers.get("etag");
-    if (etag) await setMeta(db, ETAG_KEY, etag);
-
-    const xlsxRes = await fetch(XLSX_URL, {
-      headers: {
-        "User-Agent": UA,
-        Accept: "application/vnd.ms-excel,application/octet-stream,*/*",
-      },
-    });
     if (!xlsxRes.ok) {
       throw new Error(`XLSX fetch failed: HTTP ${xlsxRes.status}`);
     }
-    const xlsxBuf = new Uint8Array(await xlsxRes.arrayBuffer());
+    if (!listingsRes.ok) {
+      throw new Error(`Listings page fetch failed: HTTP ${listingsRes.status}`);
+    }
+    const [xmlText, xlsxBuf, listingsHtml] = await Promise.all([
+      xmlRes.text(),
+      xlsxRes.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
+      listingsRes.text(),
+    ]);
     const dates = parseJoeXlsxDates(xlsxBuf);
 
-    const all = mergeDateActive(parseJoeXml(xmlText), dates);
+    const all = mergeJoePageDetails(
+      mergeDateActive(parseJoeXml(xmlText), dates),
+      parseJoeListingsHtml(listingsHtml),
+    );
     const now = nowIso();
     const listings = all.filter(
       (l) => effectiveDate(l.dateActive, now) >= SEASON_START,

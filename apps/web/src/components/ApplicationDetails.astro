@@ -1,0 +1,33 @@
+---
+import type { ListingWithRelations } from "@joe/db";
+import { shortDate } from "../lib/format";
+
+interface Props {
+  listing: ListingWithRelations;
+}
+
+const { listing } = Astro.props;
+const sections = [
+  { label: "Application requirements", value: listing.applicationRequirements },
+  { label: "Reference instructions", value: listing.referenceInstructions },
+  { label: "Application instructions", value: listing.applicationInstructions },
+].filter((section) => section.value);
+const reviewDate = shortDate(listing.reviewDate);
+---
+
+{(reviewDate || sections.length > 0) && (
+  <section class="mt-5 border-t border-border pt-4">
+    <h3 class="label-data mb-2">Application details</h3>
+    {reviewDate && (
+      <p class="mb-3 text-sm font-medium text-ink">First review: <span class="nums">{reviewDate}</span></p>
+    )}
+    <div class="grid gap-3 lg:grid-cols-2">
+      {sections.map((section) => (
+        <div class="card px-3 py-3">
+          <h4 class="label-data mb-1.5">{section.label}</h4>
+          <p class="text-sm leading-6 whitespace-pre-wrap text-ink-soft">{section.value}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+)}

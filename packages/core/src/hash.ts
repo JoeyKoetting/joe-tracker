@@ -16,6 +16,12 @@ export async function contentHash(
     keywords: listing.keywords,
     fullText: listing.fullText,
     applicationDeadline: listing.applicationDeadline,
+    reviewDate: listing.reviewDate,
+    applicationRequirements: listing.applicationRequirements,
+    referenceInstructions: listing.referenceInstructions,
+    applicationInstructions: listing.applicationInstructions,
+    applicationUrl: listing.applicationUrl,
+    referenceUrl: listing.referenceUrl,
     status: listing.status,
     dateActive: listing.dateActive,
     locations: listing.locations,
@@ -32,6 +38,31 @@ export function emptyToNull(value: string | null | undefined): string | null {
   if (value == null) return null;
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+/** Decode HTML/XML entities, including values escaped more than once by JOE. */
+export function decodeEntities(value: string): string {
+  let decoded = value;
+  for (let i = 0; i < 4; i++) {
+    const next = decoded
+      .replace(/&#x([0-9a-f]+);/gi, (_, n) =>
+        String.fromCodePoint(Number.parseInt(n, 16)),
+      )
+      .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&ndash;/gi, "–")
+      .replace(/&mdash;/gi, "—")
+      .replace(/&ldquo;|&rdquo;/gi, '"')
+      .replace(/&lsquo;|&rsquo;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/&apos;/gi, "'")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&amp;/gi, "&");
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
 }
 
 /** Parse JOE datetime strings like `2025-10-17 00:00:00` → `2025-10-17`. */

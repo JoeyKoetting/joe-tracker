@@ -1,5 +1,5 @@
 import { unzipSync, strFromU8 } from "fflate";
-import { emptyToNull, parseJoeDate } from "./hash";
+import { decodeEntities, emptyToNull, parseJoeDate } from "./hash";
 import type { ListingJel, ListingLocation, NormalizedListing } from "./types";
 
 const NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -15,29 +15,11 @@ function parseSharedStrings(xml: string): string[] {
     const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
     let tm: RegExpExecArray | null;
     while ((tm = tRe.exec(inner))) {
-      parts.push(decodeXmlEntities(tm[1]!));
+      parts.push(decodeEntities(tm[1]!));
     }
     strings.push(parts.join(""));
   }
   return strings;
-}
-
-function decodeXmlEntities(s: string): string {
-  let decoded = s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-  for (let i = 0; i < 3 && /&(?:amp|lt|gt|quot|apos);/i.test(decoded); i++) {
-    decoded = decoded
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, "&");
-  }
-  return decoded;
 }
 
 function colToIndex(col: string): number {
@@ -75,13 +57,13 @@ function parseSheetRows(xml: string, shared: string[]): string[][] {
         if (t === "s") {
           value = shared[Number(rawV)] ?? "";
         } else {
-          value = decodeXmlEntities(rawV);
+          value = decodeEntities(rawV);
         }
       }
       // Inline string
       if (t === "inlineStr") {
         const isM = /<t\b[^>]*>([\s\S]*?)<\/t>/.exec(cm[0]!);
-        if (isM) value = decodeXmlEntities(isM[1]!);
+        if (isM) value = decodeEntities(isM[1]!);
       }
       cells.push({ col, value });
     }
@@ -257,6 +239,12 @@ export function parseJoeXlsx(buffer: ArrayBuffer | Uint8Array): XlsxParseResult 
       keywords: iKeywords >= 0 ? emptyToNull(row[iKeywords]) : null,
       fullText: iFull >= 0 ? emptyToNull(row[iFull]) : null,
       applicationDeadline: iDeadline >= 0 ? cellToDate(row[iDeadline] ?? "") : null,
+      reviewDate: null,
+      applicationRequirements: null,
+      referenceInstructions: null,
+      applicationInstructions: null,
+      applicationUrl: null,
+      referenceUrl: null,
       status: null,
       dateActive,
       locations: iLoc >= 0 ? parseLocationsFromCell(emptyToNull(row[iLoc])) : [],

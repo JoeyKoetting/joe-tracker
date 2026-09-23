@@ -5,10 +5,30 @@ interface Props {
   text: string | null | undefined;
   compact?: boolean;
   cards?: boolean;
+  applicationUrl?: string | null;
+  referenceUrl?: string | null;
 }
 
-const { compact = false, cards = false } = Astro.props;
-const links = postingLinks(Astro.props.text);
+const {
+  compact = false,
+  cards = false,
+  applicationUrl,
+  referenceUrl,
+} = Astro.props;
+let links = postingLinks(Astro.props.text);
+if (applicationUrl) {
+  let host = applicationUrl;
+  try { host = new URL(applicationUrl).hostname.replace(/^www\./, ""); } catch {}
+  links = [
+    { href: applicationUrl, label: "Application site", host },
+    ...links.filter((link) => link.label !== "Application site"),
+  ];
+}
+if (referenceUrl && referenceUrl !== applicationUrl) {
+  let host = referenceUrl;
+  try { host = new URL(referenceUrl).hostname.replace(/^www\./, ""); } catch {}
+  links.push({ href: referenceUrl, label: "Reference letters", host });
+}
 ---
 
 {links.length > 0 && (

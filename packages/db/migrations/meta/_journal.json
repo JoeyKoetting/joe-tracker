@@ -8,6 +8,13 @@
       "when": 1785985357607,
       "tag": "0000_mixed_marvex",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790177400000,
+      "tag": "0001_listing_application_details",
+      "breakpoints": true
     }
   ]
 }

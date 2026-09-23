@@ -14,6 +14,7 @@ import {
 import {
   classifyJobType,
   classifyRegion,
+  decodeEntities,
   SEASON_START,
   type ChartSlice,
   type ListingFilters,
@@ -84,7 +85,27 @@ async function attachRelations(
   rows: ListingRow[],
 ): Promise<ListingWithRelations[]> {
   if (rows.length === 0) return [];
-  const ids = rows.map((r) => r.jpId);
+  const cleanedRows = rows.map((row) => ({
+    ...row,
+    section: row.section ? decodeEntities(row.section) : null,
+    title: row.title ? decodeEntities(row.title) : null,
+    institution: row.institution ? decodeEntities(row.institution) : null,
+    division: row.division ? decodeEntities(row.division) : null,
+    department: row.department ? decodeEntities(row.department) : null,
+    salaryRange: row.salaryRange ? decodeEntities(row.salaryRange) : null,
+    keywords: row.keywords ? decodeEntities(row.keywords) : null,
+    fullText: row.fullText ? decodeEntities(row.fullText) : null,
+    applicationRequirements: row.applicationRequirements
+      ? decodeEntities(row.applicationRequirements)
+      : null,
+    referenceInstructions: row.referenceInstructions
+      ? decodeEntities(row.referenceInstructions)
+      : null,
+    applicationInstructions: row.applicationInstructions
+      ? decodeEntities(row.applicationInstructions)
+      : null,
+  }));
+  const ids = cleanedRows.map((r) => r.jpId);
 
   const groups: number[][] = [];
   for (let i = 0; i < ids.length; i += 400) groups.push(ids.slice(i, i + 400));
@@ -115,11 +136,20 @@ async function attachRelations(
     jelMap.set(j.jpId, list);
   }
 
-  return rows.map((r) => ({
+  return cleanedRows.map((r) => ({
     ...r,
     mark: markMap.get(r.jpId) ?? null,
-    locations: locMap.get(r.jpId) ?? [],
-    jel: jelMap.get(r.jpId) ?? [],
+    locations: (locMap.get(r.jpId) ?? []).map((location) => ({
+      ...location,
+      country: decodeEntities(location.country),
+      state: decodeEntities(location.state),
+      city: decodeEntities(location.city),
+    })),
+    jel: (jelMap.get(r.jpId) ?? []).map((item) => ({
+      ...item,
+      code: decodeEntities(item.code),
+      description: item.description ? decodeEntities(item.description) : null,
+    })),
   }));
 }
 
@@ -260,7 +290,10 @@ export async function queryListings(
     sort === "date_asc"
       ? [asc(effectiveDateSql()), asc(listing.jpId)]
       : sort === "deadline_asc"
-        ? [asc(listing.applicationDeadline), desc(listing.jpId)]
+        ? [
+            asc(sql`COALESCE(${listing.applicationDeadline}, ${listing.reviewDate}, '9999-12-31')`),
+            desc(listing.jpId),
+          ]
         : sort === "institution_asc"
           ? [asc(listing.institution), desc(listing.jpId)]
           : [desc(effectiveDateSql()), desc(listing.jpId)];

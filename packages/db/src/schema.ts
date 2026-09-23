@@ -26,6 +26,12 @@ export const listing = sqliteTable(
     keywords: text("keywords"),
     fullText: text("full_text"),
     applicationDeadline: text("application_deadline"),
+    reviewDate: text("review_date"),
+    applicationRequirements: text("application_requirements"),
+    referenceInstructions: text("reference_instructions"),
+    applicationInstructions: text("application_instructions"),
+    applicationUrl: text("application_url"),
+    referenceUrl: text("reference_url"),
     status: text("status"),
     /** From XLSX Date_Active when available. */
     dateActive: text("date_active"),
@@ -39,6 +45,7 @@ export const listing = sqliteTable(
     index("listing_section_idx").on(t.section),
     index("listing_institution_idx").on(t.institution),
     index("listing_deadline_idx").on(t.applicationDeadline),
+    index("listing_review_date_idx").on(t.reviewDate),
     index("listing_first_seen_idx").on(t.firstSeenAt),
   ],
 );

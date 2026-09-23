@@ -1,5 +1,6 @@
 ---
 import { actions } from "astro:actions";
+import ApplicationDetails from "./ApplicationDetails.astro";
 import PostingLinks from "./PostingLinks.astro";
 import type { ListingWithRelations } from "@joe/db";
 import {
@@ -18,7 +19,12 @@ const { listing } = Astro.props;
 const markState = listing.mark?.state ?? null;
 const posted = shortDate(postedDate(listing));
 const deadline = shortDate(listing.applicationDeadline);
+const review = shortDate(listing.reviewDate);
+const deadlineLabel = listing.reviewDate === listing.applicationDeadline
+  ? "First review"
+  : "Deadline";
 const tone = deadlineTone(daysUntil(listing.applicationDeadline));
+const reviewTone = deadlineTone(daysUntil(listing.reviewDate));
 const place = locationLabel(listing);
 const jel = listing.jel.slice(0, 4);
 const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${listing.joeYear}-${String(listing.joeIssueId).padStart(2, "0")}_${listing.jpId}`;
@@ -71,7 +77,19 @@ const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${list
               tone === "past" || tone === "soon" ? "badge-bad" : "badge-neutral",
             ]}
           >
-            Deadline {deadline}
+            {deadlineLabel} {deadline}
+          </span>
+        )
+      }
+      {
+        review && listing.reviewDate !== listing.applicationDeadline && (
+          <span
+            class:list={[
+              "nums",
+              reviewTone === "past" || reviewTone === "soon" ? "badge-bad" : "badge-neutral",
+            ]}
+          >
+            First review {review}
           </span>
         )
       }
@@ -128,11 +146,17 @@ const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${list
     <div class="mb-3 flex flex-wrap items-center gap-2 text-xs">
       <span class="meta nums">JOE listing #{listing.jpId}</span>
       <a class="font-medium text-accent underline" href={originalPostingUrl} target="_blank" rel="noopener noreferrer">Original JOE posting ↗</a>
-      <PostingLinks text={listing.fullText} compact />
+      <PostingLinks
+        text={listing.fullText}
+        applicationUrl={listing.applicationUrl}
+        referenceUrl={listing.referenceUrl}
+        compact
+      />
     </div>
     {listing.keywords && <p class="meta mb-3"><strong>Keywords:</strong> {listing.keywords}</p>}
     {listing.salaryRange && <p class="meta mb-3"><strong>Salary:</strong> {listing.salaryRange}</p>}
-    {listing.fullText && <div class="max-w-[75ch] text-sm leading-6 whitespace-pre-wrap text-ink-soft">{listing.fullText.replace(/&amp;amp;/gi, "&amp;").replace(/&amp;/gi, "&")}</div>}
+    <ApplicationDetails listing={listing} />
+    {listing.fullText && <div class="mt-4 max-w-[75ch] text-sm leading-6 whitespace-pre-wrap text-ink-soft">{listing.fullText}</div>}
     {!listing.fullText && <p class="meta">No additional posting details were provided.</p>}
   </div>
 </details>

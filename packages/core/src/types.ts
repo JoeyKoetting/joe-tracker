@@ -42,6 +42,12 @@ export interface NormalizedListing {
   keywords: string | null;
   fullText: string | null;
   applicationDeadline: string | null;
+  reviewDate: string | null;
+  applicationRequirements: string | null;
+  referenceInstructions: string | null;
+  applicationInstructions: string | null;
+  applicationUrl: string | null;
+  referenceUrl: string | null;
   status: string | null;
   /** ISO date YYYY-MM-DD from XLSX Date_Active, if available. */
   dateActive: string | null;

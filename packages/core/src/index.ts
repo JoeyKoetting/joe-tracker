@@ -12,7 +12,7 @@ export type {
   SeriesPayload,
 } from "./types";
 
-export { contentHash, emptyToNull, parseJoeDate, nowIso } from "./hash";
+export { contentHash, decodeEntities, emptyToNull, parseJoeDate, nowIso } from "./hash";
 export {
   isFedInstitution,
   isFinanceJel,
@@ -31,5 +31,11 @@ export {
   yearsInSeries,
 } from "./weeks";
 export { parseJoeXml, mergeDateActive } from "./parse-xml";
+export {
+  parseJoeListingsHtml,
+  extractReviewDate,
+  mergeJoePageDetails,
+  type JoePageDetails,
+} from "./parse-listings-html";
 export { parseJoeXlsx, parseJoeXlsxDates } from "./parse-xlsx";
 export { SEASON_START } from "./season";

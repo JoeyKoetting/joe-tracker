@@ -1,26 +1,5 @@
-import { emptyToNull, parseJoeDate } from "./hash";
+import { decodeEntities, emptyToNull, parseJoeDate } from "./hash";
 import type { ListingJel, ListingLocation, NormalizedListing } from "./types";
-
-function decodeXmlEntities(s: string): string {
-  let decoded = s
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&amp;/g, "&");
-  // Feeds occasionally double-escape ampersands (for example &amp;amp;).
-  for (let i = 0; i < 3 && /&(?:amp|lt|gt|quot|apos|#\d+);/i.test(decoded); i++) {
-    decoded = decoded
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-      .replace(/&amp;/g, "&");
-  }
-  return decoded;
-}
 
 function tagText(block: string, tag: string): string | null {
   const re = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
@@ -28,7 +7,7 @@ function tagText(block: string, tag: string): string | null {
   if (!m) return null;
   // Strip nested tags if any
   const raw = m[1]!.replace(/<[^>]+>/g, "");
-  return emptyToNull(decodeXmlEntities(raw));
+  return emptyToNull(decodeEntities(raw));
 }
 
 function attrInt(openTag: string, name: string): number | null {
@@ -100,6 +79,12 @@ function parsePosition(
     keywords: tagText(block, "jp_keywords"),
     fullText: tagText(block, "jp_full_text"),
     applicationDeadline: parseJoeDate(tagText(block, "jp_application_deadline")),
+    reviewDate: null,
+    applicationRequirements: null,
+    referenceInstructions: null,
+    applicationInstructions: null,
+    applicationUrl: null,
+    referenceUrl: null,
     status: tagText(block, "jp_status"),
     dateActive: null,
     locations: parseLocations(block),

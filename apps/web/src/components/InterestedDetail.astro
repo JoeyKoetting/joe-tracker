@@ -1,5 +1,6 @@
 ---
 import { actions } from "astro:actions";
+import ApplicationDetails from "./ApplicationDetails.astro";
 import PostingLinks from "./PostingLinks.astro";
 import type { ListingWithRelations } from "@joe/db";
 import {
@@ -18,7 +19,13 @@ const { listing } = Astro.props;
 const days = daysUntil(listing.applicationDeadline);
 const tone = deadlineTone(days);
 const deadline = shortDate(listing.applicationDeadline);
+const review = shortDate(listing.reviewDate);
+const deadlineLabel = listing.reviewDate === listing.applicationDeadline
+  ? "First review"
+  : "Deadline";
 const posted = shortDate(postedDate(listing));
+const reviewDays = daysUntil(listing.reviewDate);
+const reviewTone = deadlineTone(reviewDays);
 const place = locationLabel(listing);
 const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${listing.joeYear}-${String(listing.joeIssueId).padStart(2, "0")}_${listing.jpId}`;
 
@@ -87,9 +94,23 @@ const facts = [
               tone === "past" || tone === "soon" ? "badge-bad" : "badge-neutral",
             ]}
           >
-            Deadline: {deadline}
+            {deadlineLabel}: {deadline}
             {days != null &&
               ` (${days < 0 ? `${-days}d ago` : `${days}d left`})`}
+          </span>
+        )
+      }
+      {
+        review && listing.reviewDate !== listing.applicationDeadline && (
+          <span
+            class:list={[
+              "nums",
+              reviewTone === "past" || reviewTone === "soon" ? "badge-bad" : "badge-neutral",
+            ]}
+          >
+            First review: {review}
+            {reviewDays != null &&
+              ` (${reviewDays < 0 ? `${-reviewDays}d ago` : `${reviewDays}d left`})`}
           </span>
         )
       }
@@ -146,8 +167,15 @@ const facts = [
           </div>
         ))
       }
-      <PostingLinks text={listing.fullText} cards />
+      <PostingLinks
+        text={listing.fullText}
+        applicationUrl={listing.applicationUrl}
+        referenceUrl={listing.referenceUrl}
+        cards
+      />
     </dl>
+
+    <ApplicationDetails listing={listing} />
 
     <form
       method="POST"

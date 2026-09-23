@@ -1,0 +1,60 @@
+---
+import { postingLinks } from "../lib/posting-links";
+
+interface Props {
+  text: string | null | undefined;
+  compact?: boolean;
+  cards?: boolean;
+}
+
+const { compact = false, cards = false } = Astro.props;
+const links = postingLinks(Astro.props.text);
+---
+
+{links.length > 0 && (
+  cards ? (
+    <>
+      {links.map((link) => (
+        <a
+          class="card block px-3 py-2 transition-colors hover:border-accent hover:bg-subtle"
+          href={link.href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <dt class="label-data">{link.label}</dt>
+          <dd class="mt-1 truncate text-sm font-medium text-accent">{link.host} ↗</dd>
+        </a>
+      ))}
+    </>
+  ) : compact ? (
+    <div class="flex flex-wrap gap-2" aria-label="Links from the original posting">
+      {links.map((link) => (
+        <a
+          class="rounded border border-border bg-surface px-2 py-1 text-xs font-medium text-accent hover:bg-subtle"
+          href={link.href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {link.label}: {link.host} ↗
+        </a>
+      ))}
+    </div>
+  ) : (
+    <section class="mt-4" aria-label="Links from the original posting">
+      <h3 class="label-data mb-2">Links from original posting</h3>
+      <div class="grid gap-2 sm:grid-cols-2">
+        {links.map((link) => (
+          <a
+            class="card block px-3 py-2 transition-colors hover:border-accent hover:bg-subtle"
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="label-data">{link.label}</span>
+            <span class="mt-1 block truncate text-sm font-medium text-accent">{link.host} ↗</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+)}

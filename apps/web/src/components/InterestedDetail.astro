@@ -1,5 +1,6 @@
 ---
 import { actions } from "astro:actions";
+import PostingLinks from "./PostingLinks.astro";
 import type { ListingWithRelations } from "@joe/db";
 import {
   daysUntil,
@@ -19,6 +20,7 @@ const tone = deadlineTone(days);
 const deadline = shortDate(listing.applicationDeadline);
 const posted = shortDate(postedDate(listing));
 const place = locationLabel(listing);
+const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${listing.joeYear}-${String(listing.joeIssueId).padStart(2, "0")}_${listing.jpId}`;
 
 const facts = [
   { label: "Location", value: place ?? "—" },
@@ -126,6 +128,16 @@ const facts = [
           }
         </dd>
       </div>
+      <a
+        class="card block px-3 py-2 transition-colors hover:border-accent hover:bg-subtle"
+        href={originalPostingUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open original JOE posting for ${listing.title ?? "this listing"}`}
+      >
+        <dt class="label-data">Original posting</dt>
+        <dd class="mt-1 text-sm font-medium text-accent">View on JOE ↗</dd>
+      </a>
       {
         facts.map((fact) => (
           <div class="card px-3 py-2">
@@ -134,6 +146,7 @@ const facts = [
           </div>
         ))
       }
+      <PostingLinks text={listing.fullText} cards />
     </dl>
 
     <form

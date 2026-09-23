@@ -2,13 +2,24 @@ import { emptyToNull, parseJoeDate } from "./hash";
 import type { ListingJel, ListingLocation, NormalizedListing } from "./types";
 
 function decodeXmlEntities(s: string): string {
-  return s
+  let decoded = s
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
     .replace(/&amp;/g, "&");
+  // Feeds occasionally double-escape ampersands (for example &amp;amp;).
+  for (let i = 0; i < 3 && /&(?:amp|lt|gt|quot|apos|#\d+);/i.test(decoded); i++) {
+    decoded = decoded
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+      .replace(/&amp;/g, "&");
+  }
+  return decoded;
 }
 
 function tagText(block: string, tag: string): string | null {

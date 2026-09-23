@@ -23,12 +23,21 @@ function parseSharedStrings(xml: string): string[] {
 }
 
 function decodeXmlEntities(s: string): string {
-  return s
+  let decoded = s
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, "&");
+  for (let i = 0; i < 3 && /&(?:amp|lt|gt|quot|apos);/i.test(decoded); i++) {
+    decoded = decoded
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, "&");
+  }
+  return decoded;
 }
 
 function colToIndex(col: string): number {

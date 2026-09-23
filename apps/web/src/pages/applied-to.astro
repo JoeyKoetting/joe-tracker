@@ -3,11 +3,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import InterestedDetail from "../components/InterestedDetail.astro";
 import { getDb } from "../lib/db";
 import { countMarks, listByMark } from "@joe/db";
-import { daysUntil, deadlineTone, shortDate } from "../lib/format";
 
 const db = getDb();
 const [rows, counts] = await Promise.all([
-  listByMark(db, "interested"),
+  listByMark(db, "applied_to"),
   countMarks(db),
 ]);
 
@@ -17,9 +16,9 @@ const selected =
 ---
 
 <BaseLayout
-  title="Interested · JOE Tracker"
-  heading="Interested"
-  subtitle={`${rows.length} shortlisted`}
+  title="Applied to · JOE Tracker"
+  heading="Applied to"
+  subtitle={`${rows.length} application${rows.length === 1 ? "" : "s"}`}
   counts={counts}
   flush={rows.length > 0}
 >
@@ -27,10 +26,10 @@ const selected =
     rows.length === 0 ? (
       <div class="px-4 py-4">
         <div class="card px-4 py-10 text-center">
-          <p class="text-sm font-medium">Nothing shortlisted yet.</p>
+          <p class="text-sm font-medium">No applications tracked yet.</p>
           <p class="meta mt-1">
-            Browse <a href="/" class="font-medium underline">all listings</a> and
-            mark the ones worth a closer look.
+            Browse <a href="/" class="font-medium underline">All Listings</a> and
+            mark applications as Applied to.
           </p>
         </div>
       </div>
@@ -39,11 +38,11 @@ const selected =
         <div class="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-2 md:hidden">
           {rows.map((listing) => (
             <a
-              href={`/interested?id=${listing.jpId}`}
+              href={`/applied-to?id=${listing.jpId}`}
               class:list={[
                 "rounded border px-2.5 py-1 text-[13px] whitespace-nowrap",
                 selected?.jpId === listing.jpId
-                  ? "border-good bg-good-soft text-good-ink"
+                  ? "border-applied bg-applied-soft text-applied-ink"
                   : "border-border text-ink-soft",
               ]}
             >
@@ -55,44 +54,27 @@ const selected =
         <div class="flex w-72 shrink-0 flex-col border-r border-border bg-surface max-md:hidden">
           <div class="shrink-0 border-b border-border px-3 py-2">
             <span class="label-data">
-              Shortlist <span class="nums">({rows.length})</span>
+              Applications <span class="nums">({rows.length})</span>
             </span>
           </div>
           <ul class="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
             {rows.map((listing) => {
               const active = selected?.jpId === listing.jpId;
-              const days = daysUntil(listing.applicationDeadline);
-              const tone = deadlineTone(days);
-              const deadline = shortDate(listing.applicationDeadline);
               return (
                 <li>
                   <a
-                    href={`/interested?id=${listing.jpId}`}
+                    href={`/applied-to?id=${listing.jpId}`}
                     aria-current={active ? "true" : undefined}
                     class:list={[
                       "block border-l-2 px-3 py-2 transition-colors",
                       active
-                        ? "border-l-good bg-subtle"
+                        ? "border-l-applied bg-applied-soft"
                         : "border-l-transparent hover:bg-subtle",
                     ]}
                   >
-                    <div class="flex items-start gap-2">
-                      <span class="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
-                        {listing.institution ?? "Unknown institution"}
-                      </span>
-                      {deadline && (
-                        <span
-                          class:list={[
-                            "nums",
-                            tone === "past" || tone === "soon"
-                              ? "badge-bad"
-                              : "badge-neutral",
-                          ]}
-                        >
-                          {deadline}
-                        </span>
-                      )}
-                    </div>
+                    <span class="block truncate text-[13px] font-semibold text-ink">
+                      {listing.institution ?? "Unknown institution"}
+                    </span>
                     <p class="meta mt-0.5 truncate">
                       {listing.title ?? "(untitled)"}
                     </p>
@@ -114,7 +96,7 @@ const selected =
           {selected ? (
             <InterestedDetail listing={selected} />
           ) : (
-            <p class="meta p-4">Select a listing from the shortlist.</p>
+            <p class="meta p-4">Select an application from the list.</p>
           )}
         </div>
       </div>

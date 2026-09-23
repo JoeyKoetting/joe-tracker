@@ -4,7 +4,7 @@
  */
 const DEFAULTS: Record<string, string> = {
   postedWithin: "all",
-  mark: "active",
+  mark: "unmarked",
   sort: "date_desc",
 };
 

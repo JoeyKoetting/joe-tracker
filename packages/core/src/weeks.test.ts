@@ -24,4 +24,15 @@ describe("weeks", () => {
     expect(points.map((p) => p.cumulative)).toEqual([10, 15, 20]);
     expect(points[2]!.rolling4wk).toBe(20);
   });
+
+  it("includes zero-posting weeks in the rolling four-week window", () => {
+    const points = buildWeeklySeries([
+      { year: 2026, week: 1, count: 3 },
+      { year: 2026, week: 3, count: 2 },
+      { year: 2026, week: 5, count: 1 },
+    ]);
+    expect(points.map((point) => point.week)).toEqual([1, 2, 3, 4, 5]);
+    expect(points.map((point) => point.count)).toEqual([3, 0, 2, 0, 1]);
+    expect(points[4]!.rolling4wk).toBe(3);
+  });
 });

@@ -4,8 +4,8 @@ import type { WeeklyPoint } from "./types";
 export const ACADEMIC_START_WEEK = 31;
 
 export function isoWeek(date: Date): number {
-  // Copy of Date.prototype.getISOWeek via UTC Thursday trick
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // ISO week via the UTC Thursday trick; UTC getters keep date-only inputs stable.
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - day);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -13,7 +13,7 @@ export function isoWeek(date: Date): number {
 }
 
 export function isoWeekYear(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - day);
   return d.getUTCFullYear();
@@ -78,10 +78,14 @@ export function buildWeeklySeries(
 
   const points: WeeklyPoint[] = [];
   for (const [year, weeks] of [...byYear.entries()].sort((a, b) => a[0] - b[0])) {
-    const sorted = [...weeks.entries()].sort((a, b) => a[0] - b[0]);
+    const weekNumbers = [...weeks.keys()];
+    if (weekNumbers.length === 0) continue;
+    const firstWeek = Math.min(...weekNumbers);
+    const lastWeek = Math.max(...weekNumbers);
     let cumulative = 0;
     const recent: number[] = [];
-    for (const [week, count] of sorted) {
+    for (let week = firstWeek; week <= lastWeek; week++) {
+      const count = weeks.get(week) ?? 0;
       cumulative += count;
       recent.push(count);
       if (recent.length > 4) recent.shift();

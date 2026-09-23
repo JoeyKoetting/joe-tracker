@@ -1,11 +1,14 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getDb } from "../lib/db";
-import { countMarks } from "@joe/db";
+import { analyticsBreakdowns, countMarks } from "@joe/db";
 import type { ChartSlice } from "@joe/core";
 
 const db = getDb();
-const counts = await countMarks(db);
+const [counts, breakdowns] = await Promise.all([
+  countMarks(db),
+  analyticsBreakdowns(db),
+]);
 
 const slices: { id: ChartSlice; label: string }[] = [
   { id: "overall", label: "Overall" },
@@ -20,7 +23,10 @@ const slices: { id: ChartSlice; label: string }[] = [
   { id: "industry", label: "Industry" },
 ];
 
-const initial = (Astro.url.searchParams.get("slice") as ChartSlice) || "overall";
+const requestedSlice = Astro.url.searchParams.get("slice") as ChartSlice | null;
+const initial = slices.some((slice) => slice.id === requestedSlice)
+  ? requestedSlice!
+  : "overall";
 const interpolate = Astro.url.searchParams.get("interpolate") === "1";
 const sliceLabel =
   slices.find((s) => s.id === initial)?.label ?? "Overall";
@@ -83,6 +89,34 @@ const sliceLabel =
       <div id="chart-rolling" class="mt-3 h-[360px] w-full"></div>
     </section>
   </div>
+
+  <p class="meta mt-3">
+    Date coverage: {breakdowns.dateCoverage.sourceDate} of {breakdowns.dateCoverage.total}
+    listings have a JOE active date; the rest use first-seen date as an estimate.
+  </p>
+
+  <div class="mt-5 grid gap-3 xl:grid-cols-2">
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">Listings by job type</h2>
+      <p class="meta">Classification based on JOE section</p>
+      <div id="chart-job-types" class="mt-3 h-[300px] w-full"></div>
+    </section>
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">Listings by region</h2>
+      <p class="meta">Based on listing location</p>
+      <div id="chart-regions" class="mt-3 h-[300px] w-full"></div>
+    </section>
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">Most common JEL codes</h2>
+      <p class="meta">Top 10 codes in the current season</p>
+      <div id="chart-jel" class="mt-3 h-[300px] w-full"></div>
+    </section>
+    <section class="card p-4">
+      <h2 class="text-base leading-6 font-semibold tracking-[-0.01em]">Application deadlines</h2>
+      <p class="meta">Listings by deadline month</p>
+      <div id="chart-deadlines" class="mt-3 h-[300px] w-full"></div>
+    </section>
+  </div>
 </BaseLayout>
 
 <script>
@@ -90,8 +124,14 @@ const sliceLabel =
 
   const cumEl = document.getElementById("chart-cumulative");
   const rollEl = document.getElementById("chart-rolling");
+  const chartElements = {
+    jobTypes: document.getElementById("chart-job-types"),
+    regions: document.getElementById("chart-regions"),
+    jel: document.getElementById("chart-jel"),
+    deadlines: document.getElementById("chart-deadlines"),
+  };
   if (cumEl && rollEl) {
-    await mountCharts(cumEl, rollEl);
+    await mountCharts(cumEl, rollEl, chartElements);
   }
 
   const form = document.getElementById("charts-controls");

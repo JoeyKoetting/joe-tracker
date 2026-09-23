@@ -13,6 +13,8 @@
 
   --color-primary: #1e293b;
   --color-primary-fg: #ffffff;
+  --color-applied: #2563eb;
+  --color-applied-ink: #1d4ed8;
 
   --color-good: #10b981;
   --color-good-soft: #ecfdf5;
@@ -90,6 +92,14 @@
 
 @utility btn-good-idle {
   @apply btn border-border bg-surface text-ink-soft hover:border-good hover:text-good-ink;
+}
+
+@utility btn-applied {
+  @apply btn bg-applied text-white hover:brightness-95;
+}
+
+@utility btn-applied-idle {
+  @apply btn border-border bg-surface text-ink-soft hover:border-applied hover:text-applied-ink;
 }
 
 @utility btn-bad {

@@ -84,7 +84,7 @@ const jel = listing.jel.slice(0, 4);
   </div>
 
   <div
-    class="flex shrink-0 gap-1.5 opacity-100 transition-opacity md:opacity-60 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+  class="flex shrink-0 gap-1.5"
   >
     <form method="POST" action={actions.setMark} class="mark-form">
       <input type="hidden" name="jpId" value={listing.jpId} />
@@ -98,6 +98,13 @@ const jel = listing.jel.slice(0, 4);
         data-state="interested"
       >
         Interested
+      </button>
+    </form>
+    <form method="POST" action={actions.setMark} class="mark-form">
+      <input type="hidden" name="jpId" value={listing.jpId} />
+      <input type="hidden" name="state" value="applied_to" />
+      <button type="submit" class:list={["btn-sm", markState === "applied_to" ? "btn-applied" : "btn-applied-idle"]} data-state="applied_to">
+        Applied to
       </button>
     </form>
     <form method="POST" action={actions.setMark} class="mark-form">

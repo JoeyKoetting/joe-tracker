@@ -82,7 +82,7 @@ export const mark = sqliteTable(
   "mark",
   {
     jpId: integer("jp_id").primaryKey(),
-    state: text("state", { enum: ["interested", "not_interested"] }).notNull(),
+    state: text("state", { enum: ["interested", "applied_to", "not_interested"] }).notNull(),
     note: text("note"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),

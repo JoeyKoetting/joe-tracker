@@ -2,7 +2,12 @@
 import { navIconPaths, navLinks } from "../lib/nav";
 
 interface Props {
-  counts?: { interested: number; notInterested: number };
+  counts?: {
+    all: number;
+    interested: number;
+    appliedTo: number;
+    notInterested: number;
+  };
 }
 
 const { counts } = Astro.props;
@@ -11,10 +16,12 @@ const links = navLinks(counts);
 ---
 
 <header
-  class="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-6 border-b border-border bg-surface px-4"
+  class="border-border bg-surface sticky top-0 z-30 flex h-14 shrink-0 items-center gap-6 border-b px-4"
 >
   <a href="/" class="shrink-0 leading-tight">
-    <span class="block text-[15px] font-bold tracking-[-0.01em]">JOE Tracker</span>
+    <span class="block text-[15px] font-bold tracking-[-0.01em]"
+      >JOE Tracker</span
+    >
     <span class="meta block text-[11px]">Job market triage</span>
   </a>
 
@@ -29,7 +36,7 @@ const links = navLinks(counts);
             class:list={[
               "flex items-center gap-2 rounded px-2.5 py-1.5 text-sm transition-colors",
               active
-                ? "bg-primary font-semibold text-primary-fg"
+                ? "bg-primary text-primary-fg font-semibold"
                 : "text-ink-soft hover:bg-subtle hover:text-ink",
             ]}
           >
@@ -62,4 +69,119 @@ const links = navLinks(counts);
       })
     }
   </nav>
+
+  <div class="ml-auto flex shrink-0 items-center gap-2">
+    <button id="ingest-trigger" type="button" class="btn-ghost btn-sm"
+      >Check for new JOE postings</button
+    >
+    <button
+      id="update-trigger"
+      type="button"
+      class="btn-ghost btn-sm disabled:cursor-not-allowed disabled:opacity-50"
+      disabled
+    >
+      Update app
+    </button>
+  </div>
 </header>
+
+<dialog
+  id="ingest-dialog"
+  aria-labelledby="ingest-title"
+  aria-describedby="ingest-message"
+  class="border-border bg-surface text-ink backdrop:bg-ink/35 fixed inset-0 m-auto w-[min(28rem,calc(100%-2rem))] rounded-lg border p-0 shadow-2xl outline-none backdrop:backdrop-blur-[2px]"
+>
+  <div class="flex items-start gap-4 p-6 pb-5">
+    <div
+      class="bg-good-soft text-good-ink flex size-11 shrink-0 items-center justify-center rounded-full"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="size-5"
+        aria-hidden="true"
+      >
+        <path d="M20 7v5h-5"></path>
+        <path d="M19 12a7 7 0 1 1-2-5"></path>
+      </svg>
+    </div>
+    <div class="min-w-0 pt-0.5">
+      <h2 id="ingest-title" class="text-base font-semibold tracking-tight">
+        Updating JOE listings
+      </h2>
+      <p id="ingest-message" class="text-ink-soft mt-1 text-sm leading-5">
+        Starting ingest…
+      </p>
+    </div>
+  </div>
+  <div class="border-border bg-canvas/70 border-t px-6 py-5">
+    <div
+      class="text-muted mb-2 flex items-center justify-between text-xs font-medium"
+    >
+      <span>Import progress</span>
+      <span class="flex items-center gap-2">
+        <span id="ingest-progress-label">In progress</span>
+        <span id="ingest-progress-percent" class="text-ink nums">0%</span>
+      </span>
+    </div>
+    <div
+      class="bg-subtle h-2 overflow-hidden rounded-full"
+      role="progressbar"
+      aria-label="Ingest progress"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    >
+      <div
+        id="ingest-progress"
+        class="bg-good h-full w-0 rounded-full transition-[width] duration-300"
+      >
+      </div>
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button id="ingest-close" type="button" class="btn-ghost hidden"
+        >Close</button
+      >
+    </div>
+  </div>
+</dialog>
+
+<div
+  id="ingest-toast"
+  role="status"
+  aria-live="polite"
+  class="border-good/30 bg-surface text-ink ring-good/10 fixed right-5 bottom-5 z-50 flex hidden max-w-[calc(100%-2.5rem)] items-center gap-3 rounded-lg border px-5 py-4 text-sm font-semibold shadow-2xl ring-1"
+>
+  <span
+    class="bg-good-soft text-good-ink flex size-9 shrink-0 items-center justify-center rounded-full"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="size-5"
+      aria-hidden="true"
+    >
+      <path d="m5 12 4 4L19 6"></path>
+    </svg>
+  </span>
+  <span id="ingest-toast-message"></span>
+</div>
+
+<dialog
+  id="update-dialog"
+  class="border-border bg-surface text-ink backdrop:bg-ink/30 w-[min(28rem,calc(100%-2rem))] rounded border p-5 shadow-xl"
+>
+  <h2 class="text-base font-semibold">Updating JOE Tracker</h2>
+  <p id="update-message" class="meta mt-1">Preparing the update…</p>
+  <div class="bg-subtle mt-4 h-2 overflow-hidden rounded" aria-hidden="true">
+    <div class="bg-primary h-full w-1/2 animate-pulse rounded"></div>
+  </div>
+</dialog>

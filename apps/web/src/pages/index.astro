@@ -14,7 +14,7 @@ import { parseFilters, filtersToSearchParams } from "../lib/filters";
 
 const db = getDb();
 const filters = parseFilters(Astro.url.searchParams);
-const [{ rows, nextCursor }, counts, sections, countries, jelCodes] =
+const [{ rows, total }, counts, sections, countries, jelCodes] =
   await Promise.all([
     queryListings(db, filters),
     countMarks(db),
@@ -23,20 +23,46 @@ const [{ rows, nextCursor }, counts, sections, countries, jelCodes] =
     distinctJelCodes(db),
   ]);
 
-const nextParams = nextCursor
-  ? filtersToSearchParams({ ...filters, cursor: nextCursor })
-  : null;
-
-const activeCount = [...filtersToSearchParams({ ...filters, cursor: undefined })]
+const pageSize = filters.limit ?? 40;
+const totalPages = Math.max(1, Math.ceil(total / pageSize));
+const currentPage = Math.min(filters.page ?? 1, totalPages);
+const pageHref = (page: number) => {
+  const params = filtersToSearchParams({ ...filters, cursor: undefined, page });
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
+};
+const activeCount = [...filtersToSearchParams({ ...filters, cursor: undefined, page: undefined })]
   .length;
+const preservedParams = new URLSearchParams(Astro.url.searchParams);
+preservedParams.delete("sort");
+preservedParams.delete("page");
+preservedParams.delete("cursor");
+const sortOptions = [
+  ["date_desc", "Newest posted"],
+  ["date_asc", "Oldest posted"],
+  ["deadline_asc", "Deadline soonest"],
+  ["institution_asc", "Institution A–Z"],
+] as const;
 ---
 
 <BaseLayout
   title="All listings · JOE Tracker"
   heading="All Listings"
-  subtitle={`${rows.length} shown`}
+  subtitle={`${total === 0 ? 0 : (currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, total)} of ${total}`}
   counts={counts}
 >
+  <form slot="actions" method="GET" id="listings-sort" class="flex items-center gap-2">
+    {Array.from(preservedParams.entries()).map(([name, value]) => (
+      <input type="hidden" name={name} value={value} />
+    ))}
+    <label for="sort" class="label-data">Sort</label>
+    <select id="sort" name="sort" class="input w-auto">
+      {sortOptions.map(([value, label]) => (
+        <option value={value} selected={(filters.sort ?? "date_desc") === value}>{label}</option>
+      ))}
+    </select>
+  </form>
+
   <FilterPanel
     slot="filters"
     filters={filters}
@@ -66,16 +92,27 @@ const activeCount = [...filtersToSearchParams({ ...filters, cursor: undefined })
   }
 
   {
-    nextParams && (
-      <div class="mt-4 flex justify-center">
-        <a class="btn-ghost" href={`/?${nextParams.toString()}`}>
-          Load more
-        </a>
-      </div>
+    totalPages > 1 && (
+      <nav class="mt-4 flex flex-wrap items-center justify-center gap-1" aria-label="Listing pages">
+        {currentPage > 1 && <a class="btn-ghost" href={pageHref(currentPage - 1)} aria-label="Previous page">‹</a>}
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+          <a
+            class:list={["btn-ghost min-w-9 justify-center", page === currentPage && "bg-subtle font-semibold text-ink"]}
+            href={pageHref(page)}
+            aria-current={page === currentPage ? "page" : undefined}
+          >{page}</a>
+        ))}
+        {currentPage < totalPages && <a class="btn-ghost" href={pageHref(currentPage + 1)} aria-label="Next page">›</a>}
+      </nav>
     )
   }
 </BaseLayout>
 
 <script>
   import "../scripts/mark.ts";
+  const sortForm = document.getElementById("listings-sort");
+  const sortSelect = document.querySelector<HTMLSelectElement>("#listings-sort select");
+  if (sortForm instanceof HTMLFormElement && sortSelect) {
+    sortSelect.addEventListener("change", () => sortForm.requestSubmit());
+  }
 </script>

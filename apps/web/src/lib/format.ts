@@ -39,7 +39,15 @@ export function deadlineTone(days: number | null): DeadlineTone | null {
 }
 
 export function postedDate(listing: ListingWithRelations): string | null {
-  return listing.dateActive ?? listing.firstSeenAt.slice(0, 10);
+  if (listing.dateActive) return listing.dateActive;
+  const firstSeen = new Date(listing.firstSeenAt);
+  if (Number.isNaN(firstSeen.getTime())) return null;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Denver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(firstSeen);
 }
 
 export function locationLabel(

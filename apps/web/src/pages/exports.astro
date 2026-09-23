@@ -1,0 +1,31 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { countMarks } from "@joe/db";
+import { getDb } from "../lib/db";
+
+const counts = await countMarks(getDb());
+---
+
+<BaseLayout
+  title="Exports · JOE Tracker"
+  heading="Exports"
+  subtitle="Choose the listings to include in your CSV"
+  counts={counts}
+>
+  <form action="/api/export" method="GET" class="card max-w-xl space-y-4 p-4">
+    <fieldset class="space-y-2">
+      <legend class="label-data mb-2">Export these listings</legend>
+      <label class="radio-row rounded hover:bg-subtle">
+        <input type="checkbox" name="state" value="interested" checked class="size-4 accent-primary" />
+        <span class="flex-1">Interested</span>
+        <span class="nums text-sm text-muted">{counts.interested}</span>
+      </label>
+      <label class="radio-row rounded hover:bg-subtle">
+        <input type="checkbox" name="state" value="applied-to" checked class="size-4 accent-primary" />
+        <span class="flex-1">Applied to</span>
+        <span class="nums text-sm text-muted">{counts.appliedTo}</span>
+      </label>
+    </fieldset>
+    <button type="submit" class="btn-primary btn-sm">Download CSV</button>
+  </form>
+</BaseLayout>

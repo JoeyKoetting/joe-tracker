@@ -8,7 +8,7 @@ interface Props {
   countries: string[];
   jelCodes: string[];
   activeCount: number;
-  counts?: { interested: number; notInterested: number };
+  counts?: { all: number; interested: number; appliedTo: number; notInterested: number };
 }
 
 const { filters, sections, countries, jelCodes, activeCount, counts } =
@@ -38,28 +38,22 @@ const regionOptions: [Region | "", string][] = [
 type MarkFilter = NonNullable<ListingFilters["mark"]>;
 
 const markOptions: [MarkFilter, string, string, MarkCountKey | null][] = [
-  ["active", "Active", "Everything except the archive", null],
   ["unmarked", "Not yet triaged", "No mark yet", null],
   ["interested", "Interested", "Shortlisted only", "interested"],
-  ["not_interested", "Archived", "Marked not interested", "notInterested"],
-  ["any", "Everything", "Include archived listings", null],
+  ["not_interested", "Not Interested", "Marked not interested", "notInterested"],
+  ["applied_to", "Applied to", "Applications sent", "appliedTo"],
+  ["any", "All", "All listings, including marked listings", "all"],
 ];
 
 const markCounts: Record<MarkCountKey, number | null> = {
+  all: counts?.all ?? null,
   interested: counts?.interested ?? null,
+  appliedTo: counts?.appliedTo ?? null,
   notInterested: counts?.notInterested ?? null,
 };
 
-const sortOptions: [NonNullable<ListingFilters["sort"]>, string][] = [
-  ["date_desc", "Newest posted"],
-  ["date_asc", "Oldest posted"],
-  ["deadline_asc", "Deadline soonest"],
-  ["institution_asc", "Institution A–Z"],
-];
-
 const postedWithin = filters.postedWithin ?? "all";
-const mark = filters.mark ?? "active";
-const sort = filters.sort ?? "date_desc";
+const mark = filters.mark ?? "unmarked";
 ---
 
 <form method="GET" action={Astro.url.pathname} data-filters class="space-y-4">
@@ -226,18 +220,6 @@ const sort = filters.sort ?? "date_desc";
       </select>
     </label>
 
-    <label class="block">
-      <span class="label-data mb-1">Sort</span>
-      <select name="sort" class="input">
-        {
-          sortOptions.map(([value, label]) => (
-            <option value={value} selected={sort === value}>
-              {label}
-            </option>
-          ))
-        }
-      </select>
-    </label>
   </div>
 
   <noscript>

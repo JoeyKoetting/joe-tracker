@@ -29,9 +29,9 @@ const facts = [
 ---
 
 <article
-  class="mark-row flex min-h-0 flex-col"
+  class="mark-row flex h-full min-h-0 flex-col"
   data-jp-id={listing.jpId}
-  data-mark="interested"
+  data-mark={listing.mark?.state ?? "interested"}
   data-title={listing.title ?? "(untitled)"}
 >
   <div
@@ -42,8 +42,23 @@ const facts = [
       <form method="POST" action={actions.setMark} class="mark-form">
         <input type="hidden" name="jpId" value={listing.jpId} />
         <input type="hidden" name="state" value="interested" />
-        <button type="submit" class="btn-good btn-sm" data-state="interested">
+        <button
+          type="submit"
+          class:list={["btn-sm", listing.mark?.state === "interested" ? "btn-good" : "btn-good-idle"]}
+          data-state="interested"
+        >
           Interested
+        </button>
+      </form>
+      <form method="POST" action={actions.setMark} class="mark-form">
+        <input type="hidden" name="jpId" value={listing.jpId} />
+        <input type="hidden" name="state" value="applied_to" />
+        <button
+          type="submit"
+          class:list={["btn-sm", listing.mark?.state === "applied_to" ? "btn-applied" : "btn-applied-idle"]}
+          data-state="applied_to"
+        >
+          Applied to
         </button>
       </form>
       <form method="POST" action={actions.setMark} class="mark-form">
@@ -51,7 +66,7 @@ const facts = [
         <input type="hidden" name="state" value="not_interested" />
         <button
           type="submit"
-          class="btn-bad-idle btn-sm"
+          class:list={["btn-sm", listing.mark?.state === "not_interested" ? "btn-bad" : "btn-bad-idle"]}
           data-state="not_interested"
         >
           Not Interested

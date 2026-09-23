@@ -43,21 +43,40 @@ function effectiveDateSql() {
   return sql`COALESCE(${listing.dateActive}, substr(${listing.firstSeenAt}, 1, 10))`;
 }
 
+function firstSeenDate(firstSeenAt: string): string {
+  const date = new Date(firstSeenAt);
+  if (Number.isNaN(date.getTime())) return firstSeenAt.slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Denver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
 export async function countMarks(db: Db): Promise<{
+  all: number;
   interested: number;
+  appliedTo: number;
   notInterested: number;
 }> {
-  const rows = await db
-    .select({ state: mark.state, n: count() })
-    .from(mark)
-    .groupBy(mark.state);
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({ state: mark.state, n: count() })
+      .from(mark)
+      .groupBy(mark.state),
+    db.select({ n: count() }).from(listing),
+  ]);
+  const all = totalRows[0]?.n ?? 0;
   let interested = 0;
+  let appliedTo = 0;
   let notInterested = 0;
   for (const row of rows) {
     if (row.state === "interested") interested = row.n;
+    if (row.state === "applied_to") appliedTo = row.n;
     if (row.state === "not_interested") notInterested = row.n;
   }
-  return { interested, notInterested };
+  return { all, interested, appliedTo, notInterested };
 }
 
 async function attachRelations(
@@ -67,11 +86,20 @@ async function attachRelations(
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.jpId);
 
-  const [marks, locs, jels] = await Promise.all([
-    db.select().from(mark).where(inArray(mark.jpId, ids)),
-    db.select().from(listingLocation).where(inArray(listingLocation.jpId, ids)),
-    db.select().from(listingJel).where(inArray(listingJel.jpId, ids)),
-  ]);
+  const groups: number[][] = [];
+  for (let i = 0; i < ids.length; i += 400) groups.push(ids.slice(i, i + 400));
+  const related = await Promise.all(
+    groups.map(async (group) =>
+      Promise.all([
+        db.select().from(mark).where(inArray(mark.jpId, group)),
+        db.select().from(listingLocation).where(inArray(listingLocation.jpId, group)),
+        db.select().from(listingJel).where(inArray(listingJel.jpId, group)),
+      ]),
+    ),
+  );
+  const marks = related.flatMap(([groupMarks]) => groupMarks);
+  const locs = related.flatMap(([, groupLocations]) => groupLocations);
+  const jels = related.flatMap(([, , groupJels]) => groupJels);
 
   const markMap = new Map(marks.map((m) => [m.jpId, m]));
   const locMap = new Map<number, typeof locs>();
@@ -95,10 +123,27 @@ async function attachRelations(
   }));
 }
 
+/** All listings in a mark state, without the browse page's pagination limit. */
+export async function listAllByMark(
+  db: Db,
+  state: MarkState,
+): Promise<ListingWithRelations[]> {
+  const rows = await db
+    .select({ listing })
+    .from(listing)
+    .innerJoin(mark, eq(mark.jpId, listing.jpId))
+    .where(eq(mark.state, state))
+    .orderBy(desc(effectiveDateSql()), desc(listing.jpId));
+  return attachRelations(
+    db,
+    rows.map((row) => row.listing),
+  );
+}
+
 export async function queryListings(
   db: Db,
   filters: ListingFilters = {},
-): Promise<{ rows: ListingWithRelations[]; nextCursor: string | null }> {
+): Promise<{ rows: ListingWithRelations[]; total: number }> {
   const limit = Math.min(filters.limit ?? 50, 100);
   const conditions: SQL[] = [];
 
@@ -159,7 +204,11 @@ export async function queryListings(
   }
 
   // Mark filter via subquery / join
-  if (filters.mark === "interested" || filters.mark === "not_interested") {
+  if (
+    filters.mark === "interested" ||
+    filters.mark === "applied_to" ||
+    filters.mark === "not_interested"
+  ) {
     conditions.push(
       sql`${listing.jpId} IN (SELECT jp_id FROM mark WHERE state = ${filters.mark})`,
     );
@@ -201,16 +250,10 @@ export async function queryListings(
     );
   }
 
-  if (filters.cursor) {
-    const [cursorDate, cursorId] = filters.cursor.split("|");
-    if (cursorDate && cursorId) {
-      conditions.push(
-        sql`(${effectiveDateSql()} < ${cursorDate}) OR (${effectiveDateSql()} = ${cursorDate} AND ${listing.jpId} < ${Number(cursorId)})`,
-      );
-    }
-  }
-
   const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const totalRows = await db.select({ total: count() }).from(listing).where(where);
+  const total = totalRows[0]?.total ?? 0;
+  const pageNumber = Math.max(1, Math.floor(filters.page ?? 1));
 
   const sort = filters.sort ?? "date_desc";
   const orderBy =
@@ -227,19 +270,11 @@ export async function queryListings(
     .from(listing)
     .where(where)
     .orderBy(...orderBy)
-    .limit(limit + 1);
-
-  let page = raw;
-  let nextCursor: string | null = null;
-  if (raw.length > limit) {
-    page = raw.slice(0, limit);
-    const last = page[page.length - 1]!;
-    const d = last.dateActive ?? last.firstSeenAt.slice(0, 10);
-    nextCursor = `${d}|${last.jpId}`;
-  }
+    .limit(limit)
+    .offset((pageNumber - 1) * limit);
 
   // Post-filter region for non-US (canada_europe / asia) using attached locations
-  let withRel = await attachRelations(db, page);
+  let withRel = await attachRelations(db, raw);
   if (filters.region && filters.region !== "us") {
     withRel = withRel.filter((row) => {
       const country = row.locations[0]?.country;
@@ -252,7 +287,7 @@ export async function queryListings(
     );
   }
 
-  return { rows: withRel, nextCursor };
+  return { rows: withRel, total };
 }
 
 export async function getListing(
@@ -344,6 +379,113 @@ export async function distinctJelCodes(db: Db): Promise<string[]> {
   return rows.map((r) => r.code);
 }
 
+export async function analyticsBreakdowns(db: Db) {
+  const rows = await db
+    .select({
+      jpId: listing.jpId,
+      section: listing.section,
+      dateActive: listing.dateActive,
+      firstSeenAt: listing.firstSeenAt,
+      applicationDeadline: listing.applicationDeadline,
+    })
+    .from(listing)
+    .where(
+      sql`${listing.dateActive} >= ${SEASON_START} OR ${listing.dateActive} IS NULL`,
+    );
+  const seasonRows = rows.filter(
+    (row) => (row.dateActive ?? firstSeenDate(row.firstSeenAt)) >= SEASON_START,
+  );
+
+  const ids = seasonRows.map((row) => row.jpId);
+  const idGroups: number[][] = [];
+  for (let i = 0; i < ids.length; i += 400) idGroups.push(ids.slice(i, i + 400));
+  const relationGroups = await Promise.all(
+    idGroups.map(async (group) =>
+      Promise.all([
+        db
+          .select({ jpId: listingLocation.jpId, country: listingLocation.country })
+          .from(listingLocation)
+          .where(inArray(listingLocation.jpId, group)),
+        db
+          .select({ jpId: listingJel.jpId, code: listingJel.code })
+          .from(listingJel)
+          .where(inArray(listingJel.jpId, group)),
+      ]),
+    ),
+  );
+  const locations = relationGroups.flatMap(([groupLocations]) => groupLocations);
+  const jels = relationGroups.flatMap(([, groupJels]) => groupJels);
+
+  const countryById = new Map<number, string>();
+  for (const location of locations) {
+    if (!countryById.has(location.jpId)) countryById.set(location.jpId, location.country);
+  }
+
+  const jobTypeLabels = {
+    tenure_track: "Tenure track",
+    non_tenure_academic: "Non-tenure academic",
+    industry: "Industry / nonacademic",
+    unknown: "Unclassified",
+  } as const;
+  const jobTypeCounts = new Map<string, number>();
+  for (const row of seasonRows) {
+    const type = classifyJobType(row.section) ?? "unknown";
+    jobTypeCounts.set(type, (jobTypeCounts.get(type) ?? 0) + 1);
+  }
+
+  const regionLabels = {
+    us: "United States",
+    canada_europe: "Canada + Europe",
+    asia: "Asia / Oceania",
+    other: "Other / unknown",
+  } as const;
+  const regionCounts = new Map<string, number>();
+  for (const row of seasonRows) {
+    const region = classifyRegion(countryById.get(row.jpId));
+    regionCounts.set(region, (regionCounts.get(region) ?? 0) + 1);
+  }
+
+  const jelCounts = new Map<string, number>();
+  for (const jel of jels) {
+    if (jel.code === "00") continue;
+    jelCounts.set(jel.code, (jelCounts.get(jel.code) ?? 0) + 1);
+  }
+
+  const deadlineCounts = new Map<string, number>();
+  for (const row of seasonRows) {
+    const deadline = row.applicationDeadline;
+    const match = deadline ? /^(\d{4})-(\d{2})-\d{2}$/.exec(deadline) : null;
+    if (!match) continue;
+    const monthKey = `${match[1]}-${match[2]}`;
+    deadlineCounts.set(monthKey, (deadlineCounts.get(monthKey) ?? 0) + 1);
+  }
+
+  return {
+    jobTypes: Object.entries(jobTypeLabels).map(([id, label]) => ({
+      id,
+      label,
+      count: jobTypeCounts.get(id) ?? 0,
+    })),
+    regions: Object.entries(regionLabels).map(([id, label]) => ({
+      id,
+      label,
+      count: regionCounts.get(id) ?? 0,
+    })),
+    jel: [...jelCounts.entries()]
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code))
+      .slice(0, 10),
+    deadlines: [...deadlineCounts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, count]) => ({ month, count })),
+    dateCoverage: {
+      total: seasonRows.length,
+      sourceDate: seasonRows.filter((row) => row.dateActive != null).length,
+      firstSeenFallback: seasonRows.filter((row) => row.dateActive == null).length,
+    },
+  };
+}
+
 /** Raw weekly counts for chart series, optionally filtered by slice. */
 export async function weeklyCountsForSlice(
   db: Db,
@@ -360,15 +502,15 @@ export async function weeklyCountsForSlice(
     })
     .from(listing)
     .where(
-      sql`COALESCE(${listing.dateActive}, substr(${listing.firstSeenAt}, 1, 10)) >= ${SEASON_START}`,
+      sql`${listing.dateActive} >= ${SEASON_START} OR ${listing.dateActive} IS NULL`,
     );
 
   let filtered = rows.map((r) => ({
     jpId: r.jpId,
-    dateActive: (r.dateActive ?? r.firstSeenAt.slice(0, 10)) as string,
+    dateActive: (r.dateActive ?? firstSeenDate(r.firstSeenAt)) as string,
     section: r.section,
     institution: r.institution,
-  }));
+  })).filter((row) => row.dateActive >= SEASON_START);
 
   if (slice === "overall") return filtered;
 
@@ -384,12 +526,20 @@ export async function weeklyCountsForSlice(
   // Need locations / jel for remaining slices
   const ids = filtered.map((r) => r.jpId);
   if (ids.length === 0) return [];
+  const idGroups: number[][] = [];
+  for (let i = 0; i < ids.length; i += 400) idGroups.push(ids.slice(i, i + 400));
 
   if (slice === "finance") {
-    const jels = await db
-      .select({ jpId: listingJel.jpId, code: listingJel.code })
-      .from(listingJel)
-      .where(inArray(listingJel.jpId, ids));
+    const jels = (
+      await Promise.all(
+        idGroups.map((group) =>
+          db
+            .select({ jpId: listingJel.jpId, code: listingJel.code })
+            .from(listingJel)
+            .where(inArray(listingJel.jpId, group)),
+        ),
+      )
+    ).flat();
     const byId = new Map<number, string[]>();
     for (const j of jels) {
       const list = byId.get(j.jpId) ?? [];
@@ -400,13 +550,19 @@ export async function weeklyCountsForSlice(
     return filtered.filter((r) => isFinanceJel(byId.get(r.jpId) ?? []));
   }
 
-  const locs = await db
-    .select({
-      jpId: listingLocation.jpId,
-      country: listingLocation.country,
-    })
-    .from(listingLocation)
-    .where(inArray(listingLocation.jpId, ids));
+  const locs = (
+    await Promise.all(
+      idGroups.map((group) =>
+        db
+          .select({
+            jpId: listingLocation.jpId,
+            country: listingLocation.country,
+          })
+          .from(listingLocation)
+          .where(inArray(listingLocation.jpId, group)),
+      ),
+    )
+  ).flat();
   const countryById = new Map<number, string>();
   for (const loc of locs) {
     if (!countryById.has(loc.jpId)) countryById.set(loc.jpId, loc.country);
@@ -417,8 +573,8 @@ export async function weeklyCountsForSlice(
   }
   if (slice === "non_us") {
     return filtered.filter((r) => {
-      const region = classifyRegion(countryById.get(r.jpId));
-      return region !== "us";
+      const country = countryById.get(r.jpId);
+      return country != null && classifyRegion(country) !== "us";
     });
   }
   if (slice === "region_canada_europe") {

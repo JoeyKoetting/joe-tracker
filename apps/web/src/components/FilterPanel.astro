@@ -8,7 +8,7 @@ interface Props {
   countries: string[];
   jelCodes: string[];
   activeCount: number;
-  counts?: { all: number; interested: number; appliedTo: number; notInterested: number };
+  counts?: { all: number; interested: number; maybe: number; appliedTo: number; notInterested: number };
 }
 
 const { filters, sections, countries, jelCodes, activeCount, counts } =
@@ -39,6 +39,7 @@ type MarkFilter = NonNullable<ListingFilters["mark"]>;
 
 const markOptions: [MarkFilter, string, string, MarkCountKey | null][] = [
   ["unmarked", "Not yet triaged", "No mark yet", null],
+  ["maybe", "Maybe", "Tentatively interested", "maybe"],
   ["interested", "Interested", "Shortlisted only", "interested"],
   ["not_interested", "Not Interested", "Marked not interested", "notInterested"],
   ["applied_to", "Applied to", "Applications sent", "appliedTo"],
@@ -48,6 +49,7 @@ const markOptions: [MarkFilter, string, string, MarkCountKey | null][] = [
 const markCounts: Record<MarkCountKey, number | null> = {
   all: counts?.all ?? null,
   interested: counts?.interested ?? null,
+  maybe: counts?.maybe ?? null,
   appliedTo: counts?.appliedTo ?? null,
   notInterested: counts?.notInterested ?? null,
 };

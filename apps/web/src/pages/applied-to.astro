@@ -35,7 +35,7 @@ const selected =
       </div>
     ) : (
       <div class="flex h-full min-h-0 flex-col md:flex-row">
-        <div class="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-2 md:hidden">
+        <div data-shortlist-scroll="mobile" class="flex gap-1 overflow-x-auto border-b border-border bg-surface px-3 py-2 md:hidden">
           {rows.map((listing) => (
             <a
               href={`/applied-to?id=${listing.jpId}`}
@@ -57,7 +57,7 @@ const selected =
               Applications <span class="nums">({rows.length})</span>
             </span>
           </div>
-          <ul class="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+          <ul data-shortlist-scroll="desktop" class="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
             {rows.map((listing) => {
               const active = selected?.jpId === listing.jpId;
               return (
@@ -107,4 +107,5 @@ const selected =
 <script>
   import "../scripts/mark.ts";
   import "../scripts/note.ts";
+  import "../scripts/shortlist.ts";
 </script>

@@ -10,7 +10,7 @@ export const server = {
       jpId: z.coerce.number().int().positive(),
       // An empty form value arrives as undefined, which means "clear the mark".
       state: z
-        .enum(["interested", "applied_to", "not_interested"])
+        .enum(["interested", "maybe", "applied_to", "not_interested"])
         .nullish()
         .transform((v) => v ?? null),
     }),

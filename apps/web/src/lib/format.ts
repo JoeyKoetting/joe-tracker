@@ -51,12 +51,23 @@ export function postedDate(listing: ListingWithRelations): string | null {
 }
 
 export function locationLabel(
-  listing: ListingWithRelations,
+  listing: Pick<ListingWithRelations, "locations">,
 ): string | null {
-  const location = listing.locations[0];
-  if (!location) return null;
+  const places = listing.locations
+    .map((location) =>
+      [location.city, location.state, location.country]
+        .filter(Boolean)
+        .join(", "),
+    )
+    .filter(Boolean);
+  return [...new Set(places)].join("; ") || null;
+}
+
+export function keywordLabel(keywords: string | null): string | null {
   return (
-    [location.city, location.state, location.country]
+    keywords
+      ?.split(/[\r\n]+/)
+      .map((word) => word.trim().replace(/[,;]+$/, ""))
       .filter(Boolean)
       .join(", ") || null
   );

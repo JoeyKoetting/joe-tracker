@@ -55,29 +55,49 @@ function firstSeenDate(firstSeenAt: string): string {
   }).format(date);
 }
 
+function listingOrder(sort: ListingFilters["sort"] = "date_desc") {
+  return sort === "date_asc"
+    ? [asc(effectiveDateSql()), asc(listing.jpId)]
+    : sort === "review_asc"
+      ? [
+          asc(sql`COALESCE(${listing.reviewDate}, '9999-12-31')`),
+          desc(listing.jpId),
+        ]
+      : sort === "deadline_asc"
+        ? [
+            asc(
+              sql`COALESCE(${listing.applicationDeadline}, ${listing.reviewDate}, '9999-12-31')`,
+            ),
+            desc(listing.jpId),
+          ]
+        : sort === "institution_asc"
+          ? [asc(listing.institution), desc(listing.jpId)]
+          : [desc(effectiveDateSql()), desc(listing.jpId)];
+}
+
 export async function countMarks(db: Db): Promise<{
   all: number;
   interested: number;
+  maybe: number;
   appliedTo: number;
   notInterested: number;
 }> {
   const [rows, totalRows] = await Promise.all([
-    db
-      .select({ state: mark.state, n: count() })
-      .from(mark)
-      .groupBy(mark.state),
+    db.select({ state: mark.state, n: count() }).from(mark).groupBy(mark.state),
     db.select({ n: count() }).from(listing),
   ]);
   const all = totalRows[0]?.n ?? 0;
   let interested = 0;
+  let maybe = 0;
   let appliedTo = 0;
   let notInterested = 0;
   for (const row of rows) {
+    if (row.state === "maybe") maybe = row.n;
     if (row.state === "interested") interested = row.n;
     if (row.state === "applied_to") appliedTo = row.n;
     if (row.state === "not_interested") notInterested = row.n;
   }
-  return { all, interested, appliedTo, notInterested };
+  return { all, interested, maybe, appliedTo, notInterested };
 }
 
 async function attachRelations(
@@ -113,7 +133,10 @@ async function attachRelations(
     groups.map(async (group) =>
       Promise.all([
         db.select().from(mark).where(inArray(mark.jpId, group)),
-        db.select().from(listingLocation).where(inArray(listingLocation.jpId, group)),
+        db
+          .select()
+          .from(listingLocation)
+          .where(inArray(listingLocation.jpId, group)),
         db.select().from(listingJel).where(inArray(listingJel.jpId, group)),
       ]),
     ),
@@ -157,13 +180,14 @@ async function attachRelations(
 export async function listAllByMark(
   db: Db,
   state: MarkState,
+  sort: ListingFilters["sort"] = "date_desc",
 ): Promise<ListingWithRelations[]> {
   const rows = await db
     .select({ listing })
     .from(listing)
     .innerJoin(mark, eq(mark.jpId, listing.jpId))
     .where(eq(mark.state, state))
-    .orderBy(desc(effectiveDateSql()), desc(listing.jpId));
+    .orderBy(...listingOrder(sort));
   return attachRelations(
     db,
     rows.map((row) => row.listing),
@@ -197,7 +221,6 @@ export async function queryListings(
   const since = postedSince(filters.postedWithin ?? "all");
   const floor = since && since > SEASON_START ? since : SEASON_START;
   conditions.push(sql`${effectiveDateSql()} >= ${floor}`);
-
 
   if (filters.deadlineBefore) {
     conditions.push(lte(listing.applicationDeadline, filters.deadlineBefore));
@@ -236,6 +259,7 @@ export async function queryListings(
   // Mark filter via subquery / join
   if (
     filters.mark === "interested" ||
+    filters.mark === "maybe" ||
     filters.mark === "applied_to" ||
     filters.mark === "not_interested"
   ) {
@@ -243,9 +267,7 @@ export async function queryListings(
       sql`${listing.jpId} IN (SELECT jp_id FROM mark WHERE state = ${filters.mark})`,
     );
   } else if (filters.mark === "unmarked") {
-    conditions.push(
-      sql`${listing.jpId} NOT IN (SELECT jp_id FROM mark)`,
-    );
+    conditions.push(sql`${listing.jpId} NOT IN (SELECT jp_id FROM mark)`);
   } else if (filters.mark === "active") {
     conditions.push(
       sql`${listing.jpId} NOT IN (SELECT jp_id FROM mark WHERE state = 'not_interested')`,
@@ -281,22 +303,14 @@ export async function queryListings(
   }
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const totalRows = await db.select({ total: count() }).from(listing).where(where);
+  const totalRows = await db
+    .select({ total: count() })
+    .from(listing)
+    .where(where);
   const total = totalRows[0]?.total ?? 0;
   const pageNumber = Math.max(1, Math.floor(filters.page ?? 1));
 
-  const sort = filters.sort ?? "date_desc";
-  const orderBy =
-    sort === "date_asc"
-      ? [asc(effectiveDateSql()), asc(listing.jpId)]
-      : sort === "deadline_asc"
-        ? [
-            asc(sql`COALESCE(${listing.applicationDeadline}, ${listing.reviewDate}, '9999-12-31')`),
-            desc(listing.jpId),
-          ]
-        : sort === "institution_asc"
-          ? [asc(listing.institution), desc(listing.jpId)]
-          : [desc(effectiveDateSql()), desc(listing.jpId)];
+  const orderBy = listingOrder(filters.sort);
 
   const raw = await db
     .select()
@@ -327,7 +341,11 @@ export async function getListing(
   db: Db,
   jpId: number,
 ): Promise<ListingWithRelations | null> {
-  const rows = await db.select().from(listing).where(eq(listing.jpId, jpId)).limit(1);
+  const rows = await db
+    .select()
+    .from(listing)
+    .where(eq(listing.jpId, jpId))
+    .limit(1);
   if (rows.length === 0) return null;
   const [withRel] = await attachRelations(db, rows);
   return withRel ?? null;
@@ -357,7 +375,7 @@ export async function setMark(
       target: mark.jpId,
       set: {
         state,
-        note: note ?? null,
+        ...(note !== undefined ? { note } : {}),
         updatedAt: now,
       },
     });
@@ -431,12 +449,16 @@ export async function analyticsBreakdowns(db: Db) {
 
   const ids = seasonRows.map((row) => row.jpId);
   const idGroups: number[][] = [];
-  for (let i = 0; i < ids.length; i += 400) idGroups.push(ids.slice(i, i + 400));
+  for (let i = 0; i < ids.length; i += 400)
+    idGroups.push(ids.slice(i, i + 400));
   const relationGroups = await Promise.all(
     idGroups.map(async (group) =>
       Promise.all([
         db
-          .select({ jpId: listingLocation.jpId, country: listingLocation.country })
+          .select({
+            jpId: listingLocation.jpId,
+            country: listingLocation.country,
+          })
           .from(listingLocation)
           .where(inArray(listingLocation.jpId, group)),
         db
@@ -446,12 +468,15 @@ export async function analyticsBreakdowns(db: Db) {
       ]),
     ),
   );
-  const locations = relationGroups.flatMap(([groupLocations]) => groupLocations);
+  const locations = relationGroups.flatMap(
+    ([groupLocations]) => groupLocations,
+  );
   const jels = relationGroups.flatMap(([, groupJels]) => groupJels);
 
   const countryById = new Map<number, string>();
   for (const location of locations) {
-    if (!countryById.has(location.jpId)) countryById.set(location.jpId, location.country);
+    if (!countryById.has(location.jpId))
+      countryById.set(location.jpId, location.country);
   }
 
   const jobTypeLabels = {
@@ -514,7 +539,8 @@ export async function analyticsBreakdowns(db: Db) {
     dateCoverage: {
       total: seasonRows.length,
       sourceDate: seasonRows.filter((row) => row.dateActive != null).length,
-      firstSeenFallback: seasonRows.filter((row) => row.dateActive == null).length,
+      firstSeenFallback: seasonRows.filter((row) => row.dateActive == null)
+        .length,
     },
   };
 }
@@ -523,7 +549,14 @@ export async function analyticsBreakdowns(db: Db) {
 export async function weeklyCountsForSlice(
   db: Db,
   slice: ChartSlice,
-): Promise<Array<{ dateActive: string; jpId: number; section: string | null; institution: string | null }>> {
+): Promise<
+  Array<{
+    dateActive: string;
+    jpId: number;
+    section: string | null;
+    institution: string | null;
+  }>
+> {
   // Pull candidate rows with an effective date; filter slice in JS for Fed/finance/region.
   const rows = await db
     .select({
@@ -538,12 +571,14 @@ export async function weeklyCountsForSlice(
       sql`${listing.dateActive} >= ${SEASON_START} OR ${listing.dateActive} IS NULL`,
     );
 
-  let filtered = rows.map((r) => ({
-    jpId: r.jpId,
-    dateActive: (r.dateActive ?? firstSeenDate(r.firstSeenAt)) as string,
-    section: r.section,
-    institution: r.institution,
-  })).filter((row) => row.dateActive >= SEASON_START);
+  let filtered = rows
+    .map((r) => ({
+      jpId: r.jpId,
+      dateActive: (r.dateActive ?? firstSeenDate(r.firstSeenAt)) as string,
+      section: r.section,
+      institution: r.institution,
+    }))
+    .filter((row) => row.dateActive >= SEASON_START);
 
   if (slice === "overall") return filtered;
 
@@ -552,7 +587,11 @@ export async function weeklyCountsForSlice(
     return filtered.filter((r) => isFedInstitution(r.institution));
   }
 
-  if (slice === "tenure_track" || slice === "non_tenure_academic" || slice === "industry") {
+  if (
+    slice === "tenure_track" ||
+    slice === "non_tenure_academic" ||
+    slice === "industry"
+  ) {
     return filtered.filter((r) => classifyJobType(r.section) === slice);
   }
 
@@ -560,7 +599,8 @@ export async function weeklyCountsForSlice(
   const ids = filtered.map((r) => r.jpId);
   if (ids.length === 0) return [];
   const idGroups: number[][] = [];
-  for (let i = 0; i < ids.length; i += 400) idGroups.push(ids.slice(i, i + 400));
+  for (let i = 0; i < ids.length; i += 400)
+    idGroups.push(ids.slice(i, i + 400));
 
   if (slice === "finance") {
     const jels = (
@@ -602,7 +642,9 @@ export async function weeklyCountsForSlice(
   }
 
   if (slice === "us" || slice === "region_us") {
-    return filtered.filter((r) => classifyRegion(countryById.get(r.jpId)) === "us");
+    return filtered.filter(
+      (r) => classifyRegion(countryById.get(r.jpId)) === "us",
+    );
   }
   if (slice === "non_us") {
     return filtered.filter((r) => {
@@ -616,7 +658,9 @@ export async function weeklyCountsForSlice(
     );
   }
   if (slice === "region_asia") {
-    return filtered.filter((r) => classifyRegion(countryById.get(r.jpId)) === "asia");
+    return filtered.filter(
+      (r) => classifyRegion(countryById.get(r.jpId)) === "asia",
+    );
   }
 
   return filtered;

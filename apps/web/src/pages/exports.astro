@@ -25,6 +25,11 @@ const counts = await countMarks(getDb());
         <span class="flex-1">Applied to</span>
         <span class="nums text-sm text-muted">{counts.appliedTo}</span>
       </label>
+      <label class="radio-row rounded hover:bg-subtle">
+        <input type="checkbox" name="state" value="maybe" class="size-4 accent-primary" />
+        <span class="flex-1">Maybe</span>
+        <span class="nums text-sm text-muted">{counts.maybe}</span>
+      </label>
     </fieldset>
     <button type="submit" class="btn-primary btn-sm">Download CSV</button>
   </form>

@@ -7,6 +7,7 @@ import {
   daysUntil,
   deadlineTone,
   locationLabel,
+  keywordLabel,
   postedDate,
   shortDate,
 } from "../lib/format";
@@ -58,6 +59,11 @@ const facts = [
         >
           Interested
         </button>
+      </form>
+      <form method="POST" action={actions.setMark} class="mark-form">
+        <input type="hidden" name="jpId" value={listing.jpId} />
+        <input type="hidden" name="state" value="maybe" />
+        <button type="submit" class:list={["btn-sm", listing.mark?.state === "maybe" ? "btn-maybe" : "btn-maybe-idle"]} data-state="maybe">Maybe</button>
       </form>
       <form method="POST" action={actions.setMark} class="mark-form">
         <input type="hidden" name="jpId" value={listing.jpId} />
@@ -175,6 +181,7 @@ const facts = [
       />
     </dl>
 
+    {listing.keywords && <p class="meta mt-4"><strong>Keywords:</strong> {keywordLabel(listing.keywords)}</p>}
     <ApplicationDetails listing={listing} />
 
     <form

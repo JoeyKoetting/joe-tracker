@@ -21,13 +21,14 @@ function displayDate(value: string | null): string {
 export const GET: APIRoute = async ({ url }) => {
   const selected = new Set(url.searchParams.getAll("state"));
   const states: MarkState[] = [];
+  if (selected.has("maybe")) states.push("maybe");
   if (selected.has("interested")) states.push("interested");
   if (selected.has("applied-to")) states.push("applied_to");
   if (
     states.length === 0 ||
-    [...selected].some((state) => !["interested", "applied-to"].includes(state))
+    [...selected].some((state) => !["interested", "maybe", "applied-to"].includes(state))
   ) {
-    return new Response("Select Interested, Applied to, or both to export.", {
+    return new Response("Select at least one of Interested, Maybe, or Applied to to export.", {
       status: 400,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
@@ -46,6 +47,7 @@ export const GET: APIRoute = async ({ url }) => {
     "Department",
     "Job",
     "Deadline",
+    "Priority Deadline",
     "Applied?",
     "Interviewed?",
     "Preferred Field",
@@ -57,6 +59,7 @@ export const GET: APIRoute = async ({ url }) => {
     listing.department,
     listing.title,
     displayDate(listing.applicationDeadline),
+    displayDate(listing.reviewDate),
     listing.mark?.state === "applied_to" ? 1 : "",
     "",
     "",

@@ -7,6 +7,7 @@ import {
   daysUntil,
   deadlineTone,
   locationLabel,
+  keywordLabel,
   postedDate,
   shortDate,
 } from "../lib/format";
@@ -120,6 +121,11 @@ const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${list
       </button>
     </form>
     <form method="POST" action={actions.setMark} class="mark-form">
+        <input type="hidden" name="jpId" value={listing.jpId} />
+        <input type="hidden" name="state" value="maybe" />
+        <button type="submit" class:list={["btn-sm", markState === "maybe" ? "btn-maybe" : "btn-maybe-idle"]} data-state="maybe">Maybe</button>
+      </form>
+      <form method="POST" action={actions.setMark} class="mark-form">
       <input type="hidden" name="jpId" value={listing.jpId} />
       <input type="hidden" name="state" value="applied_to" />
       <button type="submit" class:list={["btn-sm", markState === "applied_to" ? "btn-applied" : "btn-applied-idle"]} data-state="applied_to">
@@ -153,7 +159,8 @@ const originalPostingUrl = `https://www.aeaweb.org/joe/listing.php?JOE_ID=${list
         compact
       />
     </div>
-    {listing.keywords && <p class="meta mb-3"><strong>Keywords:</strong> {listing.keywords}</p>}
+    {place && <p class="meta mb-3"><strong>Locations:</strong> {place}</p>}
+    {listing.keywords && <p class="meta mb-3"><strong>Keywords:</strong> {keywordLabel(listing.keywords)}</p>}
     {listing.salaryRange && <p class="meta mb-3"><strong>Salary:</strong> {listing.salaryRange}</p>}
     <ApplicationDetails listing={listing} />
     {listing.fullText && <div class="mt-4 max-w-[75ch] text-sm leading-6 whitespace-pre-wrap text-ink-soft">{listing.fullText}</div>}

@@ -1,4 +1,5 @@
-export type MarkState = "interested" | "applied_to" | "not_interested";
+export type MarkState =
+  "interested" | "maybe" | "applied_to" | "not_interested";
 
 export type JobType = "tenure_track" | "non_tenure_academic" | "industry";
 
@@ -68,7 +69,12 @@ export interface ListingFilters {
   jobType?: JobType;
   /** `active` excludes listings marked not interested; `any` includes everything. */
   mark?: MarkState | "unmarked" | "active" | "any";
-  sort?: "date_desc" | "date_asc" | "deadline_asc" | "institution_asc";
+  sort?:
+    | "date_desc"
+    | "date_asc"
+    | "deadline_asc"
+    | "review_asc"
+    | "institution_asc";
   cursor?: string;
   page?: number;
   limit?: number;
